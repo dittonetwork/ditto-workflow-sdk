@@ -20,8 +20,7 @@ import {
   JobBuilder, 
   ChainId,
   submitWorkflow,
-  IpfsStorage,
-  WorkflowContract 
+  IpfsStorage
 } from '@ditto/workflow-sdk';
 
 // Create workflow
@@ -43,14 +42,11 @@ const workflow = WorkflowBuilder.create(ownerAccount)
 
 // Submit to IPFS and create on-chain
 const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL);
-const contract = new WorkflowContract(contractAddress, rpcUrl);
 
 const result = await submitWorkflow(
   workflow,
   executorAddress,
-  rpcUrl,
   storage,
-  contract,
   ownerSigner
 );
 ```
