@@ -1,0 +1,54 @@
+{
+  "name": "@ditto/workflow-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for creating and managing workflows with Rhinestone Smart Sessions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json",
+    "src/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts",
+    "example": "ts-node examples/basic-workflow.ts",
+    "example:sessions": "ts-node examples/complete-workflow-example.ts",
+    "example:creator-executor": "ts-node examples/creator-executor-flow.ts",
+    "example:markrun-simple": "ts-node examples/workflow-with-markrun-simple.ts",
+    "deploy-account": "ts-node scripts/deploy-account.ts"
+  },
+  "keywords": [
+    "workflow",
+    "smart-sessions",
+    "erc4337",
+    "account-abstraction"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@zerodev/ecdsa-validator": "^5.4.9",
+    "@zerodev/permissions": "^5.5.9",
+    "@zerodev/sdk": "^5.4.39",
+    "@zerodev/session-key": "^5.4.9",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.0",
+    "tslib": "^2.6.2",
+    "viem": "^2.31.3",
+    "zod": "^3.25.76",
+    "pino": "^8.15.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.19.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+smart-account-deployment.json
+*.log
+.DS_Store
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.vscode/
+package-lock.json
