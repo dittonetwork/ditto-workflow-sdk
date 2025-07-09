@@ -122,10 +122,10 @@ async function completeWorkflowExample() {
   const simulateResult = await simulateWorkflow(
     response.ipfsHash,
     storage,
-    executorAccount
+    executorAccount,
   );
 
-  logger.info("Gas estimate", simulateResult.results);
+  logger.info("Results: ", simulateResult.results);
 }
 
 

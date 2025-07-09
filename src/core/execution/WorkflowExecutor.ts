@@ -16,6 +16,7 @@ import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
+import { UserOperationReceipt } from 'viem/_types/account-abstraction';
 
 export async function execute(
     workflow: Workflow,
@@ -26,7 +27,7 @@ export async function execute(
     logger: Logger = getDefaultLogger()
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; txHash?: Hex; chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; chainId?: number; gas?: GasEstimate; error?: string }>;
 }> {
     const results = await Promise.all(
         workflow.jobs.map(async (job, i) => {
@@ -34,7 +35,7 @@ export async function execute(
                 throw new Error(`Job ${job.id} has no session`);
             }
             try {
-                const userOpHash = await executeJob(
+                const result = await executeJob(
                     job,
                     executorAccount,
                     ipfsHash,
@@ -42,12 +43,12 @@ export async function execute(
                     simulate
                 );
 
-                logger.info(`✅ Session ${i + 1} executed:`, userOpHash);
+                logger.info(`✅ Session ${i + 1} executed:`, result);
                 return {
                     success: true,
-                    txHash: userOpHash.hash,
+                    result: result.result,
                     chainId: job.chainId,
-                    gas: userOpHash.gas,
+                    gas: result.gas,
                 };
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
@@ -72,7 +73,7 @@ export async function executeJob(
     nonce: bigint,
     simulate: boolean = false,
 ): Promise<{
-    hash?: Hex,
+    result?: UserOperationReceipt,
     gas?: GasEstimate
 }> {
     const chainConfig = getChainConfig();
@@ -148,7 +149,7 @@ export async function executeJob(
     });
     const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
     return {
-        hash: result.receipt.transactionHash,
+        result: result,
     };
 }
 
@@ -160,7 +161,7 @@ export async function executeFromIpfs(
     simulate: boolean = false,
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; txHash?: Hex; chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; chainId?: number; gas?: GasEstimate; error?: string }>;
     markRunHash?: Hex;
 }> {
     const data = await storage.download(ipfsHash);
