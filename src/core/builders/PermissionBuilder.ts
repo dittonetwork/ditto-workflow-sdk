@@ -58,7 +58,7 @@ export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof t
             }));
         }
     }
-
+    console.log(workflow.validUntil, "|", workflow.validAfter);
     if (workflow.validUntil) {
         if (workflow.validAfter) {
             policies.push(toTimestampPolicy({

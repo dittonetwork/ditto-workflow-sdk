@@ -7,7 +7,8 @@ import {
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { UserOperationReceipt } from 'viem/_types/account-abstraction';
-import { getChainConfig, workflowRegistryAbi } from '../utils/constants';
+import { getChainConfig } from '../utils/chainConfigProvider';
+import { workflowRegistryAbi } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
 
 export class WorkflowContract {

@@ -18,7 +18,8 @@ export { IpfsStorage } from './storage/IpfsStorage';
 export { WorkflowContract } from './contracts/WorkflowContract';
 
 // Utility exports
-export { ChainId, getChainConfig } from './utils/constants';
+export { getChainConfig } from './utils/chainConfigProvider';
+export { ChainId } from './utils/constants';
 
 // Workflow execution and serialization exports
 export { execute, executeFromIpfs, executeJob } from './core/execution/WorkflowExecutor';

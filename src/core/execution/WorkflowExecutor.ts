@@ -8,7 +8,7 @@ import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
-import { getChainConfig } from '../../utils/constants';
+import { getChainConfig } from '../../utils/chainConfigProvider';
 import { DittoWFRegistryAddress, DittoWFRegistryAbi } from '../../utils/constants';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';

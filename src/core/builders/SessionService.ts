@@ -11,7 +11,7 @@ import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { Job } from '../Job';
 import { Workflow } from '../Workflow';
 import { buildPolicies } from './PermissionBuilder';
-import { getChainConfig } from '../../utils/constants';
+import { getChainConfig } from '../../utils/chainConfigProvider';
 
 export async function createSession(
     workflow: Workflow,
