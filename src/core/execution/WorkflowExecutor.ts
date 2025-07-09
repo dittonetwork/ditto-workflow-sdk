@@ -9,7 +9,7 @@ import { deserializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { getChainConfig } from '../../utils/chainConfigProvider';
-import { DittoWFRegistryAddress, DittoWFRegistryAbi } from '../../utils/constants';
+import { DittoWFRegistryAddress, DittoWFRegistryAbi, entryPointVersion } from '../../utils/constants';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';
 import { Workflow } from '../Workflow';
@@ -87,7 +87,7 @@ export async function executeJob(
         chain: chain,
     });
 
-    const entryPoint = getEntryPoint("0.7");
+    const entryPoint = getEntryPoint(entryPointVersion);
     const sessionKeyAccount = await deserializePermissionAccount(
         publicClient,
         entryPoint,

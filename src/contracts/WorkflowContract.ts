@@ -8,7 +8,7 @@ import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { UserOperationReceipt } from 'viem/_types/account-abstraction';
 import { getChainConfig } from '../utils/chainConfigProvider';
-import { workflowRegistryAbi } from '../utils/constants';
+import { workflowRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
 
 export class WorkflowContract {
@@ -31,7 +31,7 @@ export class WorkflowContract {
       chain: chain,
     });
 
-    const entryPoint = getEntryPoint("0.7");
+    const entryPoint = getEntryPoint(entryPointVersion);
 
     const ownerValidator = await signerToEcdsaValidator(publicClient, {
       entryPoint,

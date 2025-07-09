@@ -12,6 +12,7 @@ import { Job } from '../Job';
 import { Workflow } from '../Workflow';
 import { buildPolicies } from './PermissionBuilder';
 import { getChainConfig } from '../../utils/chainConfigProvider';
+import { entryPointVersion } from '../../utils/constants';
 
 export async function createSession(
     workflow: Workflow,
@@ -22,7 +23,7 @@ export async function createSession(
     const chainConfig = getChainConfig();
     const chain = chainConfig[job.chainId]?.chain;
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
-    const entryPoint = getEntryPoint("0.7");
+    const entryPoint = getEntryPoint(entryPointVersion);
     const publicClient = createPublicClient({
         transport: http(rpcUrl),
         chain: chain,
@@ -38,7 +39,7 @@ export async function createSession(
         kernelVersion: KERNEL_V3_3,
     });
 
-    let sessionKeyKernelAccount: CreateKernelAccountReturnType<"0.7"> | null = null;
+    let sessionKeyKernelAccount: CreateKernelAccountReturnType<typeof entryPointVersion> | null = null;
     const ownerValidator = await signerToEcdsaValidator(publicClient, {
         entryPoint,
         signer: owner,

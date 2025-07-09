@@ -28,4 +28,6 @@ export const DittoWFRegistryAbi = [
     parseAbiItem('function markRunWithMetadata(string,string,uint256)') as AbiFunction,
 ]
 
-export const DittoWFRegistryAddress = '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6' as `0x${string}` 
+export const DittoWFRegistryAddress = '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6' as `0x${string}`
+
+export const entryPointVersion = "0.7";
