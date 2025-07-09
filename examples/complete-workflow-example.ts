@@ -40,6 +40,7 @@ async function createAndSubmitWorkflow(
     })
     .addCronTrigger("0 */6 * * *")
     .setCount(3)
+    .setValidAfter(Date.now() - 2 * 60 * 60 * 1000)
     .setValidUntil(Date.now() + 2 * 60 * 60 * 1000)
     .addJob(
       JobBuilder.create("mint-nft-job-sepolia")

@@ -15,8 +15,8 @@ export interface SerializedWorkflowData {
     triggers: any[];
     jobs: SerializedJobWithSession[],
     count?: number;
-    validAfter?: number;
-    validUntil?: number;
+    validAfter?: string;
+    validUntil?: string;
     interval?: number;
   };
   metadata: {

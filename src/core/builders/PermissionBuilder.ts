@@ -61,17 +61,17 @@ export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof t
     if (workflow.validUntil) {
         if (workflow.validAfter) {
             policies.push(toTimestampPolicy({
-                validAfter: workflow.validAfter.getTime(),
-                validUntil: workflow.validUntil.getTime(),
+                validAfter: Math.floor(workflow.validAfter.getTime() / 1000),
+                validUntil: Math.floor(workflow.validUntil.getTime() / 1000),
             }));
         } else {
             policies.push(toTimestampPolicy({
-                validUntil: workflow.validUntil.getTime(),
+                validUntil: Math.floor(workflow.validUntil.getTime() / 1000),
             }));
         }
     } else if (workflow.validAfter) {
         policies.push(toTimestampPolicy({
-            validAfter: workflow.validAfter.getTime(),
+            validAfter: Math.floor(workflow.validAfter.getTime() / 1000),
         }));
     }
     return policies;

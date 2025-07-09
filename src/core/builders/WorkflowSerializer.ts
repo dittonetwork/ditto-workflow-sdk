@@ -29,8 +29,8 @@ export async function serialize(
                 session: await createSession(workflow, job, executorAddress, owner),
             }))),
             count: workflow.count,
-            validAfter: workflow.validAfter instanceof Date ? workflow.validAfter.getTime() : workflow.validAfter,
-            validUntil: workflow.validUntil instanceof Date ? workflow.validUntil.getTime() : workflow.validUntil,
+            validAfter: workflow.validAfter instanceof Date ? workflow.validAfter.toISOString() : workflow.validAfter,
+            validUntil: workflow.validUntil instanceof Date ? workflow.validUntil.toISOString() : workflow.validUntil,
             interval: workflow.interval,
         },
         metadata: {

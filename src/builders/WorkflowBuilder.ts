@@ -39,9 +39,6 @@ export class WorkflowBuilder {
 
   setValidAfter(validAfter: Date | number): WorkflowBuilder {
     if (typeof validAfter === 'number') {
-      if (validAfter <= Date.now()) {
-        throw new Error('Valid after time must be in the future');
-      }
       validAfter = new Date(validAfter);
     }
     this.validAfter = validAfter;
