@@ -5,6 +5,7 @@ import { serialize } from '../builders/WorkflowSerializer';
 import { Signer } from "@zerodev/sdk/types";
 import { UserOperationReceipt } from 'viem/_types/account-abstraction';
 import { DittoWFRegistryAddress } from '../../utils/constants';
+import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function submitWorkflow(
     workflow: Workflow,
@@ -16,7 +17,10 @@ export async function submitWorkflow(
     userOpHashes: UserOperationReceipt[];
 }> {
     const serializedData = await serialize(workflow, executorAddress, owner);
-
+    const validation = await WorkflowValidator.validate(workflow, owner);
+    if (validation.status !== ValidatorStatus.Success) {
+        throw new Error(validatorStatusMessage(validation.status));
+    }
     const ipfsHash = await storage.upload(serializedData);
 
     const workflowContract = new WorkflowContract(DittoWFRegistryAddress);

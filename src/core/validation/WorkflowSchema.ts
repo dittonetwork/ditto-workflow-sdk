@@ -38,8 +38,8 @@ export const SerializedWorkflowDataSchema = z.object({
         triggers: z.array(TriggerSchema),
         jobs: z.array(SerializedJobWithSessionSchema),
         count: z.number().positive().optional(),
-        validAfter: z.string().datetime().optional(),
-        validUntil: z.string().datetime().optional(),
+        validAfter: z.number().positive().optional(),
+        validUntil: z.number().positive().optional(),
         interval: z.number().positive().optional(),
     }),
     metadata: z.object({

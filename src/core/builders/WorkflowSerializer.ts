@@ -29,8 +29,8 @@ export async function serialize(
                 session: await createSession(workflow, job, executorAddress, owner),
             }))),
             count: workflow.count,
-            validAfter: workflow.validAfter instanceof Date ? workflow.validAfter.toISOString() : workflow.validAfter,
-            validUntil: workflow.validUntil instanceof Date ? workflow.validUntil.toISOString() : workflow.validUntil,
+            validAfter: workflow.validAfter instanceof Date ? Math.floor(workflow.validAfter.getTime() / 1000) : workflow.validAfter,
+            validUntil: workflow.validUntil instanceof Date ? Math.floor(workflow.validUntil.getTime() / 1000) : workflow.validUntil,
             interval: workflow.interval,
         },
         metadata: {
@@ -70,8 +70,8 @@ export async function deserialize(
                 session: job.session,
             })),
             count: validatedData.workflow.count,
-            validAfter: validatedData.workflow.validAfter ? new Date(validatedData.workflow.validAfter) : undefined,
-            validUntil: validatedData.workflow.validUntil ? new Date(validatedData.workflow.validUntil) : undefined,
+            validAfter: validatedData.workflow.validAfter ? new Date(validatedData.workflow.validAfter * 1000) : undefined,
+            validUntil: validatedData.workflow.validUntil ? new Date(validatedData.workflow.validUntil * 1000) : undefined,
             interval: validatedData.workflow.interval,
         });
     } catch (error) {

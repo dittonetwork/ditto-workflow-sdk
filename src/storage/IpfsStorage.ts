@@ -37,7 +37,6 @@ export class IpfsStorage implements IWorkflowStorage {
       },
       body: JSON.stringify(data),
     });
-
     if (!response.ok) {
       throw new Error(`IPFS upload failed: ${response.status} ${response.statusText}`);
     }
