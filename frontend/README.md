@@ -29,6 +29,14 @@ cp .env.example .env
 - Set your IPFS service URL
 - Add contract addresses for each chain
 - Configure RPC URLs
+- Set the status dashboard URI for workflow monitoring
+
+Example `.env` file:
+```bash
+VITE_STATUS_DASHBOARD_URI=http://localhost:3003
+VITE_APP_NAME=Workflow SDK
+VITE_APP_VERSION=1.0.0
+```
 
 4. Start the development server:
 ```bash

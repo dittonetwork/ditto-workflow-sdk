@@ -65,7 +65,7 @@ export const useAppStore = create<AppState>()(
                 })),
 
             // Config overrides
-            ipfsServiceUrl: '',
+            ipfsServiceUrl: 'https://ipfs-service.develop.dittonetwork.io/ipfs',
             setIpfsServiceUrl: (url) => set({ ipfsServiceUrl: url }),
 
             executorAddress: '',
@@ -75,13 +75,13 @@ export const useAppStore = create<AppState>()(
             setSelectedChainId: (chainId) => set({ selectedChainId: chainId }),
 
             // RPC URLs
-            sepoliaRpcUrl: '',
+            sepoliaRpcUrl: 'https://rpc.zerodev.app/api/v3/420c3c6a-22f4-4956-b567-1ae05cd18da9/chain/11155111',
             setSepoliaRpcUrl: (url) => set({ sepoliaRpcUrl: url }),
             baseSepoliaRpcUrl: '',
             setBaseSepoliaRpcUrl: (url) => set({ baseSepoliaRpcUrl: url }),
 
             // Contract addresses
-            sepoliaContract: '',
+            sepoliaContract: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
             setSepoliaContract: (address) => set({ sepoliaContract: address }),
             baseSepoliaContract: '',
             setBaseSepoliaContract: (address: string) => set({ baseSepoliaContract: address }),
