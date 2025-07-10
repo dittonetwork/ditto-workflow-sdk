@@ -4,12 +4,12 @@ export const appConfig = {
         sepolia: {
             id: 11155111,
             name: 'Sepolia',
-            rpcUrl: 'https://rpc.ankr.com/eth_sepolia',
+            rpcUrl: 'https://rpc.zerodev.app/api/v3/420c3c6a-22f4-4956-b567-1ae05cd18da9/chain/11155111',
             blockExplorer: 'https://sepolia.etherscan.io',
             // Multicall3 contract address - deployed on most chains at the same address
             // See: https://www.multicall3.com/deployments
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
-            workflowContract: '',
+            workflowContract: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
         },
         baseSepolia: {
             id: 84532,
@@ -24,7 +24,7 @@ export const appConfig = {
 
     // IPFS Configuration
     ipfs: {
-        serviceUrl: 'https://api.ditto.network/ipfs',
+        serviceUrl: 'https://ipfs-service.develop.dittonetwork.io/ipfs',
         gateway: 'https://ipfs.io/ipfs',
     },
 
@@ -46,32 +46,29 @@ export const appConfig = {
     workflowTemplates: [
         {
             id: 'nft-mint',
-            name: 'NFT Mint',
-            description: 'Mint NFT on trigger event',
+            name: 'NFT Mint Template',
+            description: 'Pre-configured NFT minting workflow with cron trigger',
             template: {
-                count: 1,
-                validAfter: new Date(),
-                validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                count: 3,
+                validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+                validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
                 triggers: [
                     {
-                        type: 'event',
+                        type: 'cron',
                         params: {
-                            signature: 'Transfer(address indexed from, address indexed to, uint256 value)',
-                            contractAddress: '',
-                            chainId: 11155111,
-                            filter: {},
+                            expression: '*/5 * * * *', // Every 5 minutes
                         },
                     },
                 ],
                 jobs: [
                     {
-                        id: 'mint-job',
+                        id: 'mint-nft-job-sepolia',
                         chainId: 11155111,
                         steps: [
                             {
-                                target: '',
+                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                                 abi: 'mint(address)',
-                                args: [''],
+                                args: ['{{ownerAccount.address}}'], // This will be replaced with actual address
                                 value: '0',
                             },
                         ],

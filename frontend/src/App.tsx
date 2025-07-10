@@ -18,7 +18,7 @@ import { Label } from './components/ui/Label'
 import { useAppStore } from './store/useAppStore'
 import { appConfig } from './config/app.config'
 import { useAccount } from 'wagmi'
-import { Settings, Workflow as WorkflowIcon, Play } from 'lucide-react'
+import { Settings, Workflow as WorkflowIcon, Play, ExternalLink, Copy } from 'lucide-react'
 import { submitWorkflow, WorkflowBuilder as WBuilder, JobBuilder, IpfsStorage } from '../../src'
 import { MemoryChainConfigProvider, setChainConfigProvider, ChainId } from '../../src/utils/chainConfigProvider'
 import toast from 'react-hot-toast'
@@ -92,10 +92,15 @@ function AppContent() {
                     .setChainId(job.chainId)
 
                 job.steps.forEach((step: any) => {
+                    // Replace placeholder with actual wallet address
+                    const processedArgs = step.args?.map((arg: string) =>
+                        arg === '{{ownerAccount.address}}' ? address : arg
+                    ) || []
+
                     jobBuilder.addStep({
                         target: step.target,
                         abi: step.abi,
-                        args: step.args || [],
+                        args: processedArgs,
                         value: BigInt(step.value || 0)
                     })
                 })
@@ -126,7 +131,51 @@ function AppContent() {
                 chainId: selectedChainId,
             })
 
-            toast.success('Workflow submitted successfully!')
+            // Show success popup with status dashboard link
+            const statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'http://localhost:3005'
+            const workflowUrl = `${statusDashboardUrl}/workflow/status/${result.ipfsHash}`
+            const truncatedHash = result.ipfsHash.length > 20 ?
+                `${result.ipfsHash.substring(0, 10)}...${result.ipfsHash.substring(result.ipfsHash.length - 10)}` :
+                result.ipfsHash
+
+            toast.success(
+                <div className="flex flex-col space-y-3 min-w-0 w-full max-w-md">
+                    <span className="font-medium">🎉 Workflow submitted successfully!</span>
+                    <div className="flex items-center space-x-2 min-w-0">
+                        <span className="text-xs text-muted-foreground flex-shrink-0">IPFS:</span>
+                        <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded flex-shrink-0" title={result.ipfsHash}>
+                            {truncatedHash}
+                        </code>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(result.ipfsHash)
+                                toast.success('IPFS hash copied!', { duration: 1500 })
+                            }}
+                            className="text-xs text-blue-500 hover:text-blue-600 flex-shrink-0"
+                            title="Copy full IPFS hash"
+                        >
+                            <Copy className="w-3 h-3" />
+                        </button>
+                    </div>
+                    <a
+                        href={workflowUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center space-x-2 text-sm text-blue-500 hover:text-blue-600 underline bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-md transition-colors"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>View in Status Dashboard</span>
+                    </a>
+                </div>,
+                {
+                    duration: 10000,
+                    style: {
+                        minWidth: '320px',
+                        maxWidth: '400px',
+                        width: 'auto',
+                    }
+                }
+            )
         } catch (error) {
             logger.error('Error submitting workflow', error)
             toast.error('Failed to submit workflow')
