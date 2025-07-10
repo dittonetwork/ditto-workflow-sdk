@@ -5,6 +5,7 @@ export { Workflow } from './core/Workflow';
 export * from './core/types';
 export { ConsoleLogger, PinoLogger, getDefaultLogger } from './core/Logger';
 export { WorkflowError, WorkflowErrorCode } from './core/WorkflowError';
+export { WorkflowValidator, ValidatorStatus, validatorStatusMessage } from './core/validation/WorkflowValidator'
 
 // Builder exports
 export { JobBuilder } from './builders/JobBuilder';

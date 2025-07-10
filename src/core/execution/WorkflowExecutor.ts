@@ -17,6 +17,7 @@ import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
 import { UserOperationReceipt } from 'viem/_types/account-abstraction';
+import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function execute(
     workflow: Workflow,
@@ -166,7 +167,10 @@ export async function executeFromIpfs(
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
-
+    const validation = await WorkflowValidator.validate(workflow, executorAccount, { checkSessions: true });
+    if (validation.status !== ValidatorStatus.Success) {
+        throw new Error(validatorStatusMessage(validation.status));
+    }
     const results = await execute(workflow, executorAccount, ipfsHash, nonce, simulate);
 
     return {

@@ -49,7 +49,7 @@ export interface ChainConfig {
   multicallAddress?: string;
 }
 
-export type Trigger = EventTrigger | CronTrigger | TimeTrigger;
+export type Trigger = EventTrigger | CronTrigger;
 
 export interface EventTrigger {
   type: 'event';
@@ -62,11 +62,6 @@ export interface EventTrigger {
 export interface CronTrigger {
   type: 'cron';
   schedule: string;
-}
-
-export interface TimeTrigger {
-  type: 'time';
-  timestamp: number;
 }
 
 export interface EventTriggerParams {
