@@ -15,9 +15,10 @@
     "clean": "rm -rf dist",
     "lint": "eslint src --ext .ts",
     "example": "ts-node examples/basic-workflow.ts",
-    "example:sessions": "ts-node examples/complete-workflow-example.ts",
-    "example:creator-executor": "ts-node examples/creator-executor-flow.ts",
-    "example:markrun-simple": "ts-node examples/workflow-with-markrun-simple.ts",
+    "example:complete": "ts-node examples/complete-workflow-example.ts",
+    "example:create": "ts-node examples/create-workflow.ts",
+    "example:execute": "ts-node examples/execute-workflow.ts",
+    "execute": "ts-node examples/execute-workflow.ts",
     "deploy-account": "ts-node scripts/deploy-account.ts"
   },
   "keywords": [

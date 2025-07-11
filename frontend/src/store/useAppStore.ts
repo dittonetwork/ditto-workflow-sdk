@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { WorkflowData, WorkflowFormData } from '../types'
+import { appConfig } from '../config/app.config'
 
 interface AppState {
     // Wallet management
@@ -65,25 +66,25 @@ export const useAppStore = create<AppState>()(
                 })),
 
             // Config overrides
-            ipfsServiceUrl: 'https://ipfs-service.develop.dittonetwork.io/ipfs',
+            ipfsServiceUrl: appConfig.ipfs.serviceUrl,
             setIpfsServiceUrl: (url) => set({ ipfsServiceUrl: url }),
 
-            executorAddress: '',
+            executorAddress: appConfig.executors[0].address,
             setExecutorAddress: (address) => set({ executorAddress: address }),
 
             selectedChainId: 11155111, // Default to Sepolia
             setSelectedChainId: (chainId) => set({ selectedChainId: chainId }),
 
             // RPC URLs
-            sepoliaRpcUrl: 'https://rpc.zerodev.app/api/v3/420c3c6a-22f4-4956-b567-1ae05cd18da9/chain/11155111',
+            sepoliaRpcUrl: appConfig.chains.sepolia.rpcUrl,
             setSepoliaRpcUrl: (url) => set({ sepoliaRpcUrl: url }),
-            baseSepoliaRpcUrl: '',
+            baseSepoliaRpcUrl: appConfig.chains.baseSepolia.rpcUrl,
             setBaseSepoliaRpcUrl: (url) => set({ baseSepoliaRpcUrl: url }),
 
             // Contract addresses
-            sepoliaContract: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
+            sepoliaContract: appConfig.chains.sepolia.workflowContract,
             setSepoliaContract: (address) => set({ sepoliaContract: address }),
-            baseSepoliaContract: '',
+            baseSepoliaContract: appConfig.chains.baseSepolia.workflowContract,
             setBaseSepoliaContract: (address: string) => set({ baseSepoliaContract: address }),
 
             // Workflow builder state
