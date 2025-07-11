@@ -1,0 +1,40 @@
+name: Deploy develop sdk
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-dev:
+    runs-on: ubuntu-latest
+    env:
+      ENV_FILE: ${{ vars.DEV_ENV_FILE }}
+    strategy:
+      matrix:
+        node-version: [20.x]
+    permissions:
+      contents: read
+      deployments: write
+    name: Publish to Cloudflare Pages
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install packages
+        run: npm i
+      - name: Generate env for project
+        run: echo "$ENV_FILE" > .env
+      - name: Build project
+        run: npm run build
+      - name: Generate wrangler.toml
+        run: |
+          cat <<EOF > wrangler.toml
+          name = "ditto-dev-workflow-sdk"
+          compatibility_date = "$(date +%Y-%m-%d)"
+          EOF
+      - name: Deploy to Cloudflare Pages using Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          command: pages deploy ./dist --project-name=ditto-dev-workflow-sdk --branch=main
