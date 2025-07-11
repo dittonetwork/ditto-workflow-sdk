@@ -36,6 +36,5 @@ jobs:
          apiToken: ${{ secrets.CF_API_TOKEN }}
          accountId: ${{ secrets.CF_ACCOUNT_ID}}
          projectName: ditto-dev-workflow-sdk
-         directory: ./dist
+         directory: ./frontend/dist
          branch: main
-        working-directory: ./frontend
