@@ -17,18 +17,24 @@ const SerializedJobWithSessionSchema = z.object({
 const TriggerSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('event'),
-        signature: z.string(),
-        contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-        chainId: z.number().positive(),
-        filter: z.record(z.any()).optional(),
+        params: z.object({
+            signature: z.string(),
+            contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+            chainId: z.number().positive(),
+            filter: z.record(z.any()).optional(),
+        }),
     }),
     z.object({
         type: z.literal('cron'),
-        schedule: z.string(),
+        params: z.object({
+            schedule: z.string(),
+        }),
     }),
     z.object({
         type: z.literal('time'),
-        timestamp: z.number().positive(),
+        params: z.object({
+            timestamp: z.number().positive(),
+        }),
     }),
 ]);
 
