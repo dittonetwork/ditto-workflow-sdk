@@ -16,7 +16,7 @@ export async function serialize(
     return {
         workflow: {
             owner: workflow.owner.address,
-            triggers: workflow.triggers,
+            triggers: workflow.triggers.map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t)),
             jobs: await Promise.all(workflow.jobs.map(async job => ({
                 id: job.id,
                 chainId: job.chainId,

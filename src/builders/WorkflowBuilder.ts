@@ -4,6 +4,7 @@ import { JobBuilder } from './JobBuilder';
 import { EventTriggerParams, Trigger } from '../core/types';
 import { PrivateKeyAccount } from 'viem/accounts';
 import { Account } from 'viem';
+import { WorkflowTrigger } from '../core/Trigger';
 
 export class WorkflowBuilder {
   private count?: number;
@@ -59,13 +60,7 @@ export class WorkflowBuilder {
     if (!params.signature || params.signature.trim().length === 0) {
       throw new Error('Event signature cannot be empty');
     }
-    this.triggers.push({
-      type: "event",
-      signature: params.signature,
-      contractAddress: params.contractAddress,
-      chainId: params.chainId,
-      filter: params.filter,
-    });
+    this.triggers.push(WorkflowTrigger.event(params));
     return this;
   }
 
@@ -73,10 +68,7 @@ export class WorkflowBuilder {
     if (!schedule || schedule.trim().length === 0) {
       throw new Error('Cron schedule cannot be empty');
     }
-    this.triggers.push({
-      type: "cron",
-      schedule,
-    });
+    this.triggers.push(WorkflowTrigger.cron(schedule));
     return this;
   }
 
