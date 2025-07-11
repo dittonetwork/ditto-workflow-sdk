@@ -53,22 +53,26 @@ export type Trigger = EventTrigger | CronTrigger;
 
 export interface EventTrigger {
   type: 'event';
-  signature: string;
-  contractAddress: Address;
-  chainId: number;
-  filter?: Record<string, any>;
+  params: {
+    signature: string;
+    contractAddress: Address;
+    chainId: number;
+    filter?: Record<string, any>;
+  };
 }
 
 export interface CronTrigger {
   type: 'cron';
-  schedule: string;
+  params: {
+    schedule: string;
+  };
 }
 
 export interface EventTriggerParams {
   signature: string;
   contractAddress: Address;
   chainId: number;
-  filter: Record<string, any>;
+  filter?: Record<string, any>;
 }
 
 export interface CronTriggerParams {

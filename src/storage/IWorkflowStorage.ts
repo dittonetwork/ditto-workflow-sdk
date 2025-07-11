@@ -1,3 +1,5 @@
+import { Trigger } from '../core/types';
+
 export interface SerializedJobWithSession {
   id: string;
   chainId: number;
@@ -12,7 +14,7 @@ export interface SerializedJobWithSession {
 export interface SerializedWorkflowData {
   workflow: {
     owner: string;
-    triggers: any[];
+    triggers: Trigger[];
     jobs: SerializedJobWithSession[],
     count?: number;
     validAfter?: number;
