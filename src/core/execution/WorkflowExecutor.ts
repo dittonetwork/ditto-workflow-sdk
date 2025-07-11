@@ -16,7 +16,7 @@ import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
-import { UserOperationReceipt } from 'viem/_types/account-abstraction';
+import { UserOperationReceipt } from 'viem/account-abstraction';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function execute(
