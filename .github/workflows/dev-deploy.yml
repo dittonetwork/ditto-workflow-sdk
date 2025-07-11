@@ -27,14 +27,11 @@ jobs:
         run: echo "$ENV_FILE" > .env
       - name: Build project
         run: npm run build
-      - name: Generate wrangler.toml
-        run: |
-          cat <<EOF > wrangler.toml
-          name = "ditto-dev-workflow-sdk"
-          compatibility_date = "$(date +%Y-%m-%d)"
-          EOF
-      - name: Deploy to Cloudflare Pages using Wrangler
-        uses: cloudflare/wrangler-action@v3
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: pages deploy ./dist --project-name=ditto-dev-workflow-sdk --branch=main
+         apiToken: ${{ secrets.CF_API_TOKEN }}
+         accountId: ${{ secrets.CF_ACCOUNT_ID}}
+         projectName: ditto-dev-workflow-sdk
+         directory: ./dist
+         branch: main
