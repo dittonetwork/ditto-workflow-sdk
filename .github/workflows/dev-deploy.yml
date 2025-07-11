@@ -21,6 +21,8 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+      - name: Install packages in main repo
+        run: npm i
       - name: Install packages
         run: npm i
         working-directory: ./frontend
