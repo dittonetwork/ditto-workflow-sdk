@@ -153,12 +153,12 @@ export class WorkflowValidator {
         for (const t of workflow.triggers) {
             if (t.type === 'event') {
                 try {
-                    parseAbiItem(`event ${t.signature}`)
+                    parseAbiItem(`event ${t.params.signature}`)
                 } catch (_) {
                     statuses.add(ValidatorStatus.InvalidTrigger)
                     errors.push('invalid event trigger signature')
                 }
-                if (!isAddress(t.contractAddress)) {
+                if (!isAddress(t.params.contractAddress)) {
                     statuses.add(ValidatorStatus.InvalidTrigger)
                     errors.push('invalid contract address in trigger')
                 }

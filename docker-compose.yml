@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  workflow-dashboard:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "4173:4173"
+    volumes:
+      - .:/project
+      - /project/frontend/node_modules
+    environment:
+      - NODE_ENV=production
+    networks:
+      - ditto-workflow
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+networks:
+  ditto-workflow:
+    driver: bridge 

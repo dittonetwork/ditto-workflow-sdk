@@ -49,11 +49,31 @@ export function WorkflowBuilder() {
 
     const { register, control, handleSubmit, watch, setValue, getValues } = useForm<WorkflowFormData>({
         defaultValues: {
-            count: currentWorkflow?.count || 1,
-            validAfter: new Date().toISOString().slice(0, 16), // Always use current time
-            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-            triggers: currentWorkflow?.triggers || [],
-            jobs: currentWorkflow?.jobs || []
+            count: currentWorkflow?.count || 3,
+            validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours ago
+            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours from now
+            triggers: currentWorkflow?.triggers || [
+                {
+                    type: 'cron',
+                    params: {
+                        expression: '*/5 * * * *' // Every 5 minutes
+                    }
+                }
+            ],
+            jobs: currentWorkflow?.jobs || [
+                {
+                    id: 'mint-nft-job-sepolia',
+                    chainId: 11155111,
+                    steps: [
+                        {
+                            target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
+                            abi: 'mint(address)',
+                            args: ['{{ownerAccount.address}}'], // Placeholder for owner address
+                            value: '0'
+                        }
+                    ]
+                }
+            ]
         }
     })
 
@@ -128,8 +148,8 @@ export function WorkflowBuilder() {
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle>Workflow Builder</CardTitle>
-                        <CardDescription>Create and configure your workflow step by step</CardDescription>
+                        <CardTitle>🎨 NFT Mint Template</CardTitle>
+                        <CardDescription>Pre-configured NFT minting workflow - ready to use every 5 minutes</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={exportWorkflow} type="button">
@@ -234,7 +254,7 @@ export function WorkflowBuilder() {
                                         variant="outline"
                                         onClick={() => appendTrigger({
                                             type: 'cron',
-                                            params: { expression: '0 */6 * * *' }
+                                            params: { expression: '*/5 * * * *' }
                                         })}
                                     >
                                         <Plus className="mr-2 h-4 w-4" />
@@ -267,14 +287,21 @@ export function WorkflowBuilder() {
                                     type="button"
                                     variant="outline"
                                     onClick={() => appendJob({
-                                        id: `job-${Date.now()}`,
+                                        id: `mint-nft-job-${Date.now()}`,
                                         chainId: appConfig.chains.sepolia.id,
-                                        steps: []
+                                        steps: [
+                                            {
+                                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
+                                                abi: 'mint(address)',
+                                                args: ['{{ownerAccount.address}}'],
+                                                value: '0'
+                                            }
+                                        ]
                                     })}
                                     className="w-full"
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
-                                    Add Job
+                                    Add NFT Mint Job
                                 </Button>
                             </div>
                         </TabsContent>
@@ -475,7 +502,7 @@ function TriggerItem({ index, control, register, remove, watch }: TriggerItemPro
                             <Label>Cron Expression</Label>
                             <Input
                                 {...register(`triggers.${index}.params.expression`)}
-                                placeholder="0 */6 * * * (every 6 hours)"
+                                placeholder="*/5 * * * * (every 5 minutes)"
                             />
                             <p className="text-xs text-muted-foreground mt-1">
                                 Format: minute hour day month weekday
