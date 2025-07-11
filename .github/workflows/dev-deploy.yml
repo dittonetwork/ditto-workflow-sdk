@@ -23,10 +23,13 @@ jobs:
           cache: 'npm'
       - name: Install packages
         run: npm i
+        working-directory: ./frontend
       - name: Generate env for project
         run: echo "$ENV_FILE" > .env
+        working-directory: ./frontend
       - name: Build project
         run: npm run build
+        working-directory: ./frontend
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
@@ -35,3 +38,4 @@ jobs:
          projectName: ditto-dev-workflow-sdk
          directory: ./dist
          branch: main
+        working-directory: ./frontend
