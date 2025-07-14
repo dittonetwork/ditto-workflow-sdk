@@ -51,7 +51,7 @@ export const appConfig = {
             template: {
                 count: 3,
                 validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-                validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+                validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day from now
                 triggers: [
                     {
                         type: 'cron',

@@ -53,7 +53,7 @@ export function WorkflowBuilder() {
         defaultValues: {
             count: currentWorkflow?.count || 3,
             validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours ago
-            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours from now
+            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16), // 1 day from now
             triggers: currentWorkflow?.triggers || [
                 {
                     type: 'cron',
