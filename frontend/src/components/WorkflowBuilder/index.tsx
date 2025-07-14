@@ -133,7 +133,19 @@ export function WorkflowBuilder() {
         if (template) {
             setValue('count', template.template.count)
             setValue('triggers', template.template.triggers as WorkflowFormData['triggers'])
-            setValue('jobs', template.template.jobs as WorkflowFormData['jobs'])
+
+            // Process jobs to replace placeholders with actual connected address
+            const processedJobs = template.template.jobs.map(job => ({
+                ...job,
+                steps: job.steps.map(step => ({
+                    ...step,
+                    args: step.args.map(arg =>
+                        arg === '{{ownerAccount.address}}' ? (address || '{{ownerAccount.address}}') : arg
+                    )
+                }))
+            })) as WorkflowFormData['jobs']
+
+            setValue('jobs', processedJobs)
             toast.success(`Loaded template: ${template.name}`)
         }
     }
