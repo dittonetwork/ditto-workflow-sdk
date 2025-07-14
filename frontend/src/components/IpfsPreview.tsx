@@ -144,7 +144,7 @@ export function IpfsPreview({ ipfsHash, data, transactionHash, chainId }: IpfsPr
                             <dd>{data.workflow.count || 'Unlimited'}</dd>
 
                             <dt className="text-muted-foreground">Valid Until:</dt>
-                            <dd>{data.workflow.validUntil ? new Date(data.workflow.validUntil).toLocaleString() : 'No expiration'}</dd>
+                            <dd>{data.workflow.validUntil ? new Date(data.workflow.validUntil * 1000).toLocaleString() : 'No expiration'}</dd>
                         </dl>
                     </div>
                 )}
