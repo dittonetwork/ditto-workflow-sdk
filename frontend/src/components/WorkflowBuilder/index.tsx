@@ -68,7 +68,7 @@ export function WorkflowBuilder() {
                     chainId: 11155111,
                     steps: [
                         {
-                            target: '0x34bE7f35132E97915633BC1fc020364EA5134863',
+                            target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                             abi: 'mint(address)',
                             args: [address || '{{ownerAccount.address}}'], // Use connected address or placeholder
                             value: '0'
@@ -133,19 +133,7 @@ export function WorkflowBuilder() {
         if (template) {
             setValue('count', template.template.count)
             setValue('triggers', template.template.triggers as WorkflowFormData['triggers'])
-
-            // Update job arguments with connected address
-            const updatedJobs = template.template.jobs.map(job => ({
-                ...job,
-                steps: job.steps.map(step => ({
-                    ...step,
-                    args: step.abi === 'mint(address)' && step.args.length > 0
-                        ? [address || '{{ownerAccount.address}}'] // Always use connected address if available
-                        : step.args
-                }))
-            })) as WorkflowFormData['jobs']
-
-            setValue('jobs', updatedJobs)
+            setValue('jobs', template.template.jobs as WorkflowFormData['jobs'])
             toast.success(`Loaded template: ${template.name}`)
         }
     }
@@ -361,7 +349,7 @@ export function WorkflowBuilder() {
                                         chainId: appConfig.chains.sepolia.id,
                                         steps: [
                                             {
-                                                target: '0x34bE7f35132E97915633BC1fc020364EA5134863',
+                                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                                                 abi: 'mint(address)',
                                                 args: [address || '{{ownerAccount.address}}'],
                                                 value: '0'
@@ -402,7 +390,7 @@ export function WorkflowBuilder() {
                     </div>
                 </form>
             </CardContent>
-        </Card>
+        </Card >
     )
 }
 

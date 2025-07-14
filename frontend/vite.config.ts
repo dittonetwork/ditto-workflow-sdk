@@ -37,7 +37,7 @@ export default defineConfig({
         port: 5173,
         proxy: {
             '/ipfs': {
-                target: 'https://api.dittonetwork.io',
+                target: 'https://ipfs-service.develop.dittonetwork.io',
                 changeOrigin: true,
                 secure: false,
             },

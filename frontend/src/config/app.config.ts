@@ -9,7 +9,7 @@ export const appConfig = {
             // Multicall3 contract address - deployed on most chains at the same address
             // See: https://www.multicall3.com/deployments
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
-            workflowContract: '0x34bE7f35132E97915633BC1fc020364EA5134863',
+            workflowContract: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
         },
         baseSepolia: {
             id: 84532,
@@ -30,14 +30,14 @@ export const appConfig = {
 
     // Ditto API Configuration
     api: {
-        baseUrl: 'https://ipfs-service.develop.dittonetwork.io',
+        baseUrl: 'https://api.ditto.network',
     },
 
     // Default executor addresses (can be overridden in UI)
     executors: [
         {
             name: 'Default Executor',
-            address: '0xe29fe250607469eAA9d5A3C3957a521C0872cD1a',
+            address: '',
             description: 'Primary executor for workflow execution',
         },
     ],
@@ -66,7 +66,7 @@ export const appConfig = {
                         chainId: 11155111,
                         steps: [
                             {
-                                target: '0x34bE7f35132E97915633BC1fc020364EA5134863',
+                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                                 abi: 'mint(address)',
                                 args: ['{{ownerAccount.address}}'], // This will be replaced with actual address
                                 value: '0',
