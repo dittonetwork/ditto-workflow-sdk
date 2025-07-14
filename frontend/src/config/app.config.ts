@@ -66,7 +66,7 @@ export const appConfig = {
                         chainId: 11155111,
                         steps: [
                             {
-                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
+                                target: '0x34bE7f35132E97915633BC1fc020364EA5134863',
                                 abi: 'mint(address)',
                                 args: ['{{ownerAccount.address}}'], // This will be replaced with actual address
                                 value: '0',
