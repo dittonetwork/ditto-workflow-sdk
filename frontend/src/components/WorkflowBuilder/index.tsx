@@ -131,6 +131,10 @@ export function WorkflowBuilder() {
     const loadTemplate = (templateId: string) => {
         const template = appConfig.workflowTemplates.find(t => t.id === templateId)
         if (template) {
+            console.log('Loading template:', template.name)
+            console.log('Connected address:', address)
+            console.log('Original template jobs:', template.template.jobs)
+
             setValue('count', template.template.count)
             setValue('triggers', template.template.triggers as WorkflowFormData['triggers'])
 
@@ -139,14 +143,28 @@ export function WorkflowBuilder() {
                 ...job,
                 steps: job.steps.map(step => ({
                     ...step,
-                    args: step.args.map(arg =>
-                        arg === '{{ownerAccount.address}}' ? (address || '{{ownerAccount.address}}') : arg
-                    )
+                    args: step.args.map(arg => {
+                        console.log('Processing arg:', arg, 'address:', address)
+                        const result = arg === '{{ownerAccount.address}}' ? (address || '{{ownerAccount.address}}') : arg
+                        console.log('Result:', result)
+                        return result
+                    })
                 }))
             })) as WorkflowFormData['jobs']
 
+            console.log('Processed jobs:', processedJobs)
             setValue('jobs', processedJobs)
-            toast.success(`Loaded template: ${template.name}`)
+
+            // Force form refresh to ensure UI updates
+            setTimeout(() => {
+                setValue('jobs', processedJobs)
+            }, 100)
+
+            if (address) {
+                toast.success(`✅ Loaded template: ${template.name} with your wallet address`)
+            } else {
+                toast.success(`⚠️ Loaded template: ${template.name} - Connect wallet to auto-fill address`)
+            }
         }
     }
 
