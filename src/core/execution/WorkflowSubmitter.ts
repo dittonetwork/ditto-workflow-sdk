@@ -3,7 +3,7 @@ import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { WorkflowContract } from '../../contracts/WorkflowContract';
 import { serialize } from '../builders/WorkflowSerializer';
 import { Signer } from "@zerodev/sdk/types";
-import { UserOperationReceipt } from 'viem/_types/account-abstraction';
+import { UserOperationReceipt } from 'viem/account-abstraction';
 import { DittoWFRegistryAddress } from '../../utils/constants';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
