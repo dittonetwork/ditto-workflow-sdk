@@ -39,28 +39,12 @@ async function createAndSubmitWorkflow(
       }
     })
     .addCronTrigger("0 */6 * * *")
-    .setCount(3)
+    .setCount(2000)
     .setValidAfter(Date.now() - 2 * 60 * 60 * 1000)
-    .setValidUntil(Date.now() + 2 * 60 * 60 * 1000)
+    .setValidUntil(Date.now() + 10000 * 60 * 60 * 1000)
     .addJob(
       JobBuilder.create("mint-nft-job-sepolia")
         .setChainId(sepolia.id)
-        .addStep({
-          target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
-          abi: "mint(address)",
-          args: [ownerAccount.address!],
-          value: BigInt(0)
-        })
-        .addStep({
-          target: "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-          abi: "latestRoundData()",
-          args: [],
-          value: BigInt(0)
-        })
-        .build()
-    ).addJob(
-      JobBuilder.create("mint-nft-job-base-sepolia")
-        .setChainId(baseSepolia.id)
         .addStep({
           target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
           abi: "mint(address)",
@@ -97,7 +81,7 @@ async function simulateWorkflow(
     storage,
     executorAccount,
     BigInt(0),
-    false
+    true
   );
 
   return result;
