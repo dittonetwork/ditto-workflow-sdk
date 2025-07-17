@@ -22,7 +22,26 @@ export const workflowRegistryAbi = [
         outputs: [{ name: 'userOpHash', type: 'bytes' }],
         type: 'function',
     },
-] as const
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "userNonce",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+];
 
 export const DittoWFRegistryAbi = [
     parseAbiItem('function markRunWithMetadata(string,string,uint256)') as AbiFunction,

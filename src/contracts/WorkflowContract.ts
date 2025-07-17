@@ -22,6 +22,25 @@ export class WorkflowContract {
     return this.contractAddress;
   }
 
+  async getNonce(user: Address, chainId: number): Promise<bigint> {
+    const chainConfig = getChainConfig();
+    const chain = chainConfig[chainId]?.chain;
+    const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl),
+      chain: chain,
+    });
+    
+    const nonce = await publicClient.readContract({
+        address: this.contractAddress,
+        abi: workflowRegistryAbi,
+        functionName: 'userNonce',
+        args: [user]
+    });
+
+    return nonce as bigint;
+  }
+
   async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number): Promise<UserOperationReceipt> {
     const chainConfig = getChainConfig();
     const chain = chainConfig[chainId]?.chain;
