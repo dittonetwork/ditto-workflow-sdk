@@ -16,7 +16,7 @@ import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
-import { UserOperationReceipt } from 'viem/account-abstraction';
+import { UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function execute(
@@ -28,7 +28,7 @@ export async function execute(
     logger: Logger = getDefaultLogger()
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string }>;
 }> {
     const results = await Promise.all(
         workflow.jobs.map(async (job, i) => {
@@ -48,6 +48,7 @@ export async function execute(
                 return {
                     success: true,
                     result: result.result,
+                    userOp: result.userOp,
                     chainId: job.chainId,
                     gas: result.gas,
                 };
@@ -75,7 +76,8 @@ export async function executeJob(
     simulate: boolean = false,
 ): Promise<{
     result?: UserOperationReceipt,
-    gas?: GasEstimate
+    gas?: GasEstimate,
+    userOp?: UserOperation
 }> {
     const chainConfig = getChainConfig();
     const chain = chainConfig[job.chainId]?.chain;
@@ -127,11 +129,12 @@ export async function executeJob(
         }),
     });
 
+    const userOperation = await kernelClient.prepareUserOperation({
+        account: sessionKeyAccount,
+        calls: calls,
+    });
+
     if (simulate) {
-        const userOperation = await kernelClient.prepareUserOperation({
-            account: sessionKeyAccount,
-            calls: calls,
-        });
         const estimation = await kernelPaymaster.estimateGasInERC20(
             {
                 userOperation: userOperation,
@@ -142,15 +145,17 @@ export async function executeJob(
         return {
             gas: {
                 amount: estimation.amount,
-            }
+            },
+            userOp: userOperation,
         };
     }
     const userOpHash = await kernelClient.sendUserOperation({
-        callData: await sessionKeyAccount.encodeCalls(calls, "call"),
+        calls: calls,
     });
     const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
     return {
         result: result,
+        userOp: userOperation,
     };
 }
 
@@ -162,7 +167,7 @@ export async function executeFromIpfs(
     simulate: boolean = false,
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string }>;
     markRunHash?: Hex;
 }> {
     const data = await storage.download(ipfsHash);
