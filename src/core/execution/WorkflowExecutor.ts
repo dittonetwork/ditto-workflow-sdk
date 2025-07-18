@@ -124,8 +124,8 @@ export async function executeJob(
         value: BigInt(0),
         data: encodeFunctionData({
             abi: DittoWFRegistryAbi,
-            functionName: "markRunWithMetadata",
-            args: [ipfsHash, job.id, nonce],
+            functionName: "markRun",
+            args: [ipfsHash],
         }),
     });
 
