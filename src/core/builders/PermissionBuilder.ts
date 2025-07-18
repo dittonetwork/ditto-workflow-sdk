@@ -33,10 +33,8 @@ export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof t
         target: DittoWFRegistryAddress,
         valueLimit: BigInt(0),
         abi: DittoWFRegistryAbi,
-        functionName: "markRunWithMetadata",
+        functionName: "markRun",
         args: [
-            null,
-            null,
             null,
         ],
     });
