@@ -25,7 +25,7 @@ export const workflowRegistryAbi = [
 ] as const
 
 export const DittoWFRegistryAbi = [
-    parseAbiItem('function markRunWithMetadata(string,string,uint256)') as AbiFunction,
+    parseAbiItem('function markRun(string)') as AbiFunction,
 ]
 
 export const DittoWFRegistryAddress = '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6' as `0x${string}`
