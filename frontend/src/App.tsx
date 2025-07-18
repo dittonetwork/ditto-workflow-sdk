@@ -132,7 +132,13 @@ function AppContent() {
             })
 
             // Show success popup with status dashboard link
-            const statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'http://localhost:3005'
+            let statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'http://localhost:3005'
+
+            // Ensure the URL has a protocol
+            if (statusDashboardUrl && !statusDashboardUrl.startsWith('http://') && !statusDashboardUrl.startsWith('https://')) {
+                statusDashboardUrl = `https://${statusDashboardUrl}`
+            }
+
             const workflowUrl = `${statusDashboardUrl}/workflow/status/${result.ipfsHash}`
             const truncatedHash = result.ipfsHash.length > 20 ?
                 `${result.ipfsHash.substring(0, 10)}...${result.ipfsHash.substring(result.ipfsHash.length - 10)}` :

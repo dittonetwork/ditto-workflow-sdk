@@ -10,6 +10,7 @@ import { appConfig } from '../../config/app.config'
 import { useAppStore } from '../../store/useAppStore'
 import toast from 'react-hot-toast'
 import { useDebounce } from '../../hooks/useDebounce'
+import { useAccount } from 'wagmi'
 
 interface WorkflowFormData {
     count: number
@@ -44,6 +45,7 @@ interface WorkflowFormData {
 }
 
 export function WorkflowBuilder() {
+    const { address } = useAccount()
     const { currentWorkflow, setCurrentWorkflow } = useAppStore()
     const [activeTab, setActiveTab] = useState('basic')
 
@@ -51,7 +53,7 @@ export function WorkflowBuilder() {
         defaultValues: {
             count: currentWorkflow?.count || 3,
             validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours ago
-            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours from now
+            validUntil: currentWorkflow?.validUntil || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16), // 1 day from now
             triggers: currentWorkflow?.triggers || [
                 {
                     type: 'cron',
@@ -68,7 +70,7 @@ export function WorkflowBuilder() {
                         {
                             target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                             abi: 'mint(address)',
-                            args: ['{{ownerAccount.address}}'], // Placeholder for owner address
+                            args: [address || '{{ownerAccount.address}}'], // Use connected address or placeholder
                             value: '0'
                         }
                     ]
@@ -98,6 +100,29 @@ export function WorkflowBuilder() {
         }
     }, [debouncedValues, setCurrentWorkflow])
 
+    // Update form values when wallet address changes
+    React.useEffect(() => {
+        if (address) {
+            // Update all mint(address) args with the connected address
+            const currentJobs = getValues('jobs')
+            const updatedJobs = currentJobs.map(job => ({
+                ...job,
+                steps: job.steps.map(step => ({
+                    ...step,
+                    args: step.abi === 'mint(address)' && step.args.length > 0
+                        ? [address] // Always use connected address for mint(address) functions
+                        : step.args
+                }))
+            }))
+            setValue('jobs', updatedJobs)
+
+            // Force re-render to show updated values in the UI
+            setTimeout(() => {
+                setValue('jobs', updatedJobs)
+            }, 100)
+        }
+    }, [address, setValue, getValues])
+
     const onSubmit = (data: WorkflowFormData) => {
         setCurrentWorkflow(data)
         toast.success('Workflow saved to builder')
@@ -106,10 +131,40 @@ export function WorkflowBuilder() {
     const loadTemplate = (templateId: string) => {
         const template = appConfig.workflowTemplates.find(t => t.id === templateId)
         if (template) {
+            console.log('Loading template:', template.name)
+            console.log('Connected address:', address)
+            console.log('Original template jobs:', template.template.jobs)
+
             setValue('count', template.template.count)
             setValue('triggers', template.template.triggers as WorkflowFormData['triggers'])
-            setValue('jobs', template.template.jobs as WorkflowFormData['jobs'])
-            toast.success(`Loaded template: ${template.name}`)
+
+            // Process jobs to replace placeholders with actual connected address
+            const processedJobs = template.template.jobs.map(job => ({
+                ...job,
+                steps: job.steps.map(step => ({
+                    ...step,
+                    args: step.args.map(arg => {
+                        console.log('Processing arg:', arg, 'address:', address)
+                        const result = arg === '{{ownerAccount.address}}' ? (address || '{{ownerAccount.address}}') : arg
+                        console.log('Result:', result)
+                        return result
+                    })
+                }))
+            })) as WorkflowFormData['jobs']
+
+            console.log('Processed jobs:', processedJobs)
+            setValue('jobs', processedJobs)
+
+            // Force form refresh to ensure UI updates
+            setTimeout(() => {
+                setValue('jobs', processedJobs)
+            }, 100)
+
+            if (address) {
+                toast.success(`✅ Loaded template: ${template.name} with your wallet address`)
+            } else {
+                toast.success(`⚠️ Loaded template: ${template.name} - Connect wallet to auto-fill address`)
+            }
         }
     }
 
@@ -143,15 +198,48 @@ export function WorkflowBuilder() {
         }
     }
 
+    const syncAddresses = () => {
+        if (address) {
+            const currentJobs = getValues('jobs')
+            const updatedJobs = currentJobs.map(job => ({
+                ...job,
+                steps: job.steps.map(step => ({
+                    ...step,
+                    args: step.abi === 'mint(address)' && step.args.length > 0
+                        ? [address]
+                        : step.args
+                }))
+            }))
+            setValue('jobs', updatedJobs)
+            toast.success('All addresses synced to connected wallet')
+        } else {
+            toast.error('Please connect your wallet first')
+        }
+    }
+
     return (
         <Card className="w-full">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>
                         <CardTitle>🎨 NFT Mint Template</CardTitle>
-                        <CardDescription>Pre-configured NFT minting workflow - ready to use every 5 minutes</CardDescription>
+                        <CardDescription>
+                            Pre-configured NFT minting workflow - runs every 5 minutes
+                            {address && (
+                                <span className="block text-green-600 font-medium">
+                                    ✓ Connected wallet: {address.slice(0, 6)}...{address.slice(-4)}
+                                    <span className="text-xs text-muted-foreground ml-2">(addresses auto-synced)</span>
+                                </span>
+                            )}
+                        </CardDescription>
                     </div>
                     <div className="flex gap-2">
+                        {address && (
+                            <Button variant="outline" size="sm" onClick={syncAddresses} type="button">
+                                <Copy className="mr-2 h-4 w-4" />
+                                Sync Addresses
+                            </Button>
+                        )}
                         <Button variant="outline" size="sm" onClick={exportWorkflow} type="button">
                             <Download className="mr-2 h-4 w-4" />
                             Export
@@ -293,7 +381,7 @@ export function WorkflowBuilder() {
                                             {
                                                 target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
                                                 abi: 'mint(address)',
-                                                args: ['{{ownerAccount.address}}'],
+                                                args: [address || '{{ownerAccount.address}}'],
                                                 value: '0'
                                             }
                                         ]
@@ -332,7 +420,7 @@ export function WorkflowBuilder() {
                     </div>
                 </form>
             </CardContent>
-        </Card>
+        </Card >
     )
 }
 

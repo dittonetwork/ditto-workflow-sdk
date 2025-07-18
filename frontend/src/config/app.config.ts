@@ -51,7 +51,7 @@ export const appConfig = {
             template: {
                 count: 3,
                 validAfter: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-                validUntil: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+                validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day from now
                 triggers: [
                     {
                         type: 'cron',
@@ -66,7 +66,7 @@ export const appConfig = {
                         chainId: 11155111,
                         steps: [
                             {
-                                target: '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6',
+                                target: '0x34bE7f35132E97915633BC1fc020364EA5134863',
                                 abi: 'mint(address)',
                                 args: ['{{ownerAccount.address}}'], // This will be replaced with actual address
                                 value: '0',
