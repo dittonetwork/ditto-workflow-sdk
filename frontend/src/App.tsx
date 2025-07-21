@@ -148,7 +148,7 @@ function AppContent() {
             })
 
             // Show success popup with status dashboard link
-            let statusDashboardUrl = import.meta.env.WORKFLOW_STATUS_URL || 'http://localhost:3005'
+            let statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'http://localhost:3005'
 
             // Ensure the URL has a protocol
             if (statusDashboardUrl && !statusDashboardUrl.startsWith('http://') && !statusDashboardUrl.startsWith('https://')) {
