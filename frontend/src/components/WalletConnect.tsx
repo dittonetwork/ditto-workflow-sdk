@@ -22,7 +22,7 @@ export function WalletConnect() {
     }
 
     const openExplorer = (address: string) => {
-        const statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'http://localhost:3005'
+        const statusDashboardUrl = import.meta.env.VITE_STATUS_DASHBOARD_URI || 'https://status-dash.develop.dittonetwork.io'
         window.open(`${statusDashboardUrl}?account=${address}`, '_blank')
     }
 
