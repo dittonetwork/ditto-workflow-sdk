@@ -37,7 +37,7 @@ export const appConfig = {
     executors: [
         {
             name: 'Default Executor',
-            address: '',
+            address: '0xe29fe250607469eAA9d5A3C3957a521C0872cD1a',
             description: 'Primary executor for workflow execution',
         },
     ],

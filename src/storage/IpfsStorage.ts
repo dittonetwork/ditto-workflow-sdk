@@ -30,7 +30,7 @@ export class IpfsStorage implements IWorkflowStorage {
   constructor(private readonly ipfsServiceUrl: string) { }
 
   async upload(data: SerializedWorkflowData): Promise<string> {
-    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/ipfs/upload`, {
+    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/upload`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export class IpfsStorage implements IWorkflowStorage {
     });
 
     if (!response.ok) {
-      throw new Error(`IPFS download failed: ${response.status} ${response.statusText}`);
+      throw new Error(`IPFS download failed: ${response.status} ${response.statusText} ${this.ipfsServiceUrl}`);
     }
 
     const contentType = response.headers.get('content-type');

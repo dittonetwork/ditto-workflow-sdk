@@ -16,6 +16,7 @@ import { ConsoleLogger } from '../src';
 dotenv.config({ path: '.env' });
 
 const IPFS_SERVICE_URL = process.env.IPFS_SERVICE_URL || 'https://api.ditto.network/ipfs';
+const WORKFLOW_STATUS_URL = process.env.WORKFLOW_STATUS_URL || 'http://localhost:3007';
 const WORKFLOW_CONTRACT_ADDRESS = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`;
 const OWNER_PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
 const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY as Hex;
@@ -85,7 +86,7 @@ async function main() {
         logger.info("📋 Transaction Hashes:", response.userOpHashes.map(op => op.receipt?.transactionHash).filter(Boolean));
 
         console.log("\n🌐 View your workflow status at:");
-        console.log(`http://localhost:3007/workflow/status/${response.ipfsHash}`);
+        console.log(`${WORKFLOW_STATUS_URL}/workflow/status/${response.ipfsHash}`);
 
     } catch (error) {
         logger.error("❌ Workflow creation failed:", error);

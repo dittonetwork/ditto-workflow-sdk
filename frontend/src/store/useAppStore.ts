@@ -49,7 +49,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             // Wallet management
             activeWalletIndex: 0,
             setActiveWalletIndex: (index) => set({ activeWalletIndex: index }),
@@ -110,6 +110,12 @@ export const useAppStore = create<AppState>()(
                 isExecutorMode: state.isExecutorMode,
                 activeWalletIndex: state.activeWalletIndex,
             }),
+            onRehydrateStorage: () => (state) => {
+                // Ensure executor address is set to default if empty after rehydration
+                if (state && !state.executorAddress) {
+                    state.setExecutorAddress(appConfig.executors[0].address)
+                }
+            },
         }
     )
 ) 
