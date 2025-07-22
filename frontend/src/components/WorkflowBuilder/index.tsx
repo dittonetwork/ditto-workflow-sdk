@@ -136,6 +136,8 @@ export function WorkflowBuilder() {
             console.log('Original template jobs:', template.template.jobs)
 
             setValue('count', template.template.count)
+            setValue('validAfter', template.template.validAfter.toISOString().slice(0, 16))
+            setValue('validUntil', template.template.validUntil.toISOString().slice(0, 16))
             setValue('triggers', template.template.triggers as WorkflowFormData['triggers'])
 
             // Process jobs to replace placeholders with actual connected address

@@ -71,7 +71,7 @@ async function main() {
         }
 
         console.log("\n🌐 View workflow status at:");
-        console.log(`${process.env.VITE_STATUS_DASHBOARD_URI}/workflow/status/${ipfsHash}`);
+        console.log(`${process.env.WORKFLOW_STATUS_URL}/workflow/status/${ipfsHash}`);
 
     } catch (error) {
         logger.error("❌ Workflow execution failed:", error);

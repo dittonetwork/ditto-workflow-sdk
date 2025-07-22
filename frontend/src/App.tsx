@@ -54,6 +54,13 @@ function AppContent() {
         setBaseSepoliaContract,
     } = useAppStore()
 
+    // Ensure executor address is initialized on mount
+    React.useEffect(() => {
+        if (!executorAddress) {
+            setExecutorAddress(appConfig.executors[0].address)
+        }
+    }, [executorAddress, setExecutorAddress])
+
     const handleSubmitWorkflow = async () => {
         if (!currentWorkflow || !address) {
             toast.error('Please create a workflow and connect wallet')
@@ -117,9 +124,18 @@ function AppContent() {
 
             const storage = new IpfsStorage(ipfsServiceUrl || appConfig.ipfs.serviceUrl)
 
+            // Ensure executor address is set, fallback to default if empty
+            const finalExecutorAddress = executorAddress || appConfig.executors[0].address
+            console.log('Executor address check:', { executorAddress, finalExecutorAddress })
+
+            if (!finalExecutorAddress) {
+                toast.error('Executor address not configured')
+                return
+            }
+
             const result = await submitWorkflow(
                 workflow,
-                (executorAddress || address) as `0x${string}`,
+                finalExecutorAddress as `0x${string}`,
                 storage,
                 window.ethereum!
             )
@@ -252,7 +268,7 @@ function AppContent() {
                                         id="executor"
                                         value={executorAddress}
                                         onChange={(e) => setExecutorAddress(e.target.value)}
-                                        placeholder={address || '0x...'}
+                                        placeholder="0x..."
                                     />
                                 </div>
                                 <div>
