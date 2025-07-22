@@ -46,7 +46,7 @@ export class IpfsStorage implements IWorkflowStorage {
   }
 
   async download(ipfsHash: string): Promise<SerializedWorkflowData> {
-    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/ipfs/read/${ipfsHash}`, {
+    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/read/${ipfsHash}`, {
       method: 'GET',
     });
 
