@@ -268,7 +268,7 @@ function AppContent() {
                                         id="executor"
                                         value={executorAddress}
                                         onChange={(e) => setExecutorAddress(e.target.value)}
-                                        placeholder="0xe29fe250607469eAA9d5A3C3957a521C0872cD1a"
+                                        placeholder="0x..."
                                     />
                                 </div>
                                 <div>
