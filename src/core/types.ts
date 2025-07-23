@@ -49,7 +49,7 @@ export interface ChainConfig {
   multicallAddress?: string;
 }
 
-export type Trigger = EventTrigger | CronTrigger;
+export type Trigger = EventTrigger | CronTrigger | OnchainTrigger;
 
 export interface EventTrigger {
   type: 'event';
@@ -68,6 +68,17 @@ export interface CronTrigger {
   };
 }
 
+export interface OnchainTrigger {
+  type: 'onchain';
+  params: {
+    target: Address;
+    abi: string;
+    args: readonly any[];
+    value?: bigint;
+    chainId: number;
+  };
+}
+
 export interface EventTriggerParams {
   signature: string;
   contractAddress: Address;
@@ -77,6 +88,14 @@ export interface EventTriggerParams {
 
 export interface CronTriggerParams {
   schedule: string;
+}
+
+export interface OnchainTriggerParams {
+  target: Address;
+  abi: string;
+  args: readonly any[];
+  value?: bigint;
+  chainId: number;
 }
 
 // ZeroDev Session Types

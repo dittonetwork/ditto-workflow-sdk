@@ -38,6 +38,12 @@ async function createAndSubmitWorkflow(
         to: ownerAccount.address // Mint to owner
       }
     })
+    .addOnchainTrigger({
+      target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
+      abi: "mint(address)",
+      args: [ownerAccount.address!],
+      chainId: ChainId.SEPOLIA,
+    })
     .addCronTrigger("0 */6 * * *")
     .setCount(2000)
     .setValidAfter(Date.now() - 2 * 60 * 60 * 1000)
