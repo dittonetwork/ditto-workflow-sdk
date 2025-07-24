@@ -30,7 +30,7 @@ export class IpfsStorage implements IWorkflowStorage {
   constructor(private readonly ipfsServiceUrl: string) { }
 
   async upload(data: SerializedWorkflowData): Promise<string> {
-    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/upload`, {
+    const response = await fetchWithRetry(`${this.ipfsServiceUrl}/ipfs/upload`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
