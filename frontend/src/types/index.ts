@@ -23,7 +23,16 @@ export interface Workflow {
     jobs: Job[]
 }
 
-export type Trigger = EventTrigger | CronTrigger | TimeTrigger
+export type Trigger = EventTrigger | CronTrigger | TimeTrigger | OnchainTrigger
+
+export interface OnchainTrigger {
+    type: 'onchain'
+    target: Address
+    abi: string
+    args: readonly string[]
+    value?: string
+    chainId: number
+}
 
 export interface EventTrigger {
     type: 'event'
@@ -70,13 +79,17 @@ export interface WorkflowFormData {
     validAfter: string
     validUntil: string
     triggers: Array<{
-        type: 'event' | 'cron' | 'manual'
+        type: 'event' | 'cron' | 'manual' | 'onchain'
         params: {
             signature?: string
             contractAddress?: string
             chainId?: number
             filter?: Record<string, string>
             expression?: string
+            target?: string
+            abi?: string
+            args?: string[]
+            value?: string
         }
     }>
     jobs: Array<{

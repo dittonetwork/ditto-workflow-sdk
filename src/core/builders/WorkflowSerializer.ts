@@ -57,7 +57,18 @@ export async function deserialize(
     try {
         return new Workflow({
             owner: addressToEmptyAccount(validatedData.workflow.owner as `0x${string}`),
-            triggers: validatedData.workflow.triggers as any,
+            triggers: validatedData.workflow.triggers.map((t): any => {
+                if (t.type === 'onchain' && t.params.value !== undefined) {
+                    return {
+                        ...t,
+                        params: {
+                            ...t.params,
+                            value: BigInt(t.params.value as any),
+                        },
+                    };
+                }
+                return t as any;
+            }),
             jobs: validatedData.workflow.jobs.map((job): IJob => ({
                 id: job.id,
                 chainId: job.chainId,

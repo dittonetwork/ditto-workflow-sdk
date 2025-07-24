@@ -34,7 +34,7 @@ export class PinoLogger implements Logger {
 }
 
 export function getDefaultLogger(): Logger {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.SDK_PINO_LOGGER === 'true') {
         return new PinoLogger();
     }
     return new ConsoleLogger();

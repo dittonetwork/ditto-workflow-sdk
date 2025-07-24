@@ -36,6 +36,16 @@ const TriggerSchema = z.discriminatedUnion('type', [
             timestamp: z.number().positive(),
         }),
     }),
+    z.object({
+        type: z.literal('onchain'),
+        params: z.object({
+            target: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+            abi: z.string(),
+            args: z.array(z.any()).readonly(),
+            value: z.string().optional(),
+            chainId: z.number().positive(),
+        }),
+    }),
 ]);
 
 export const SerializedWorkflowDataSchema = z.object({

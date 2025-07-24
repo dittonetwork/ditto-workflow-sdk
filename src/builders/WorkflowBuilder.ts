@@ -1,7 +1,7 @@
 import { Workflow } from '../core/Workflow';
 import { Job } from '../core/Job';
 import { JobBuilder } from './JobBuilder';
-import { EventTriggerParams, Trigger } from '../core/types';
+import { EventTriggerParams, OnchainTriggerParams, Trigger } from '../core/types';
 import { PrivateKeyAccount } from 'viem/accounts';
 import { Account } from 'viem';
 import { WorkflowTrigger } from '../core/Trigger';
@@ -69,6 +69,18 @@ export class WorkflowBuilder {
       throw new Error('Cron schedule cannot be empty');
     }
     this.triggers.push(WorkflowTrigger.cron(schedule));
+    return this;
+  }
+
+  addOnchainTrigger(params: OnchainTriggerParams): WorkflowBuilder {
+    // Basic validation similar to Step
+    if (!params.abi || params.abi.trim().length === 0) {
+      throw new Error('ABI cannot be empty');
+    }
+    if (!params.target || params.target.trim().length === 0) {
+      throw new Error('Target contract address cannot be empty');
+    }
+    this.triggers.push(WorkflowTrigger.onchain(params));
     return this;
   }
 

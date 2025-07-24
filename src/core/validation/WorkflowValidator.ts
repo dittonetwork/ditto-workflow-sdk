@@ -163,6 +163,38 @@ export class WorkflowValidator {
                     errors.push('invalid contract address in trigger')
                 }
             }
+            if (t.type === 'onchain') {
+                // Validate address
+                if (!isAddress(t.params.target as Address)) {
+                    statuses.add(ValidatorStatus.InvalidTrigger);
+                    errors.push('invalid target address in onchain trigger');
+                }
+                try {
+                    const abiFunc: any = parseAbiItem(`function ${t.params.abi}`);
+                    if (abiFunc.inputs.length !== t.params.args.length) {
+                        throw new Error('args length mismatch');
+                    }
+                    for (let i = 0; i < abiFunc.inputs.length; i++) {
+                        if (!isValidArgForType(t.params.args[i], abiFunc.inputs[i].type)) {
+                            throw new Error('arg type mismatch');
+                        }
+                    }
+                } catch (_) {
+                    statuses.add(ValidatorStatus.InvalidTrigger);
+                    errors.push('invalid abi or args in onchain trigger');
+                }
+                if (!chainConfig[t.params.chainId]) {
+                    statuses.add(ValidatorStatus.UnsupportedChainId);
+                    errors.push(`unsupported chain ${t.params.chainId} in onchain trigger`);
+                }
+                if (t.params.value !== undefined) {
+                    const valBig = typeof t.params.value === 'string' ? BigInt(t.params.value) : t.params.value;
+                    if (valBig < BigInt(0)) {
+                        statuses.add(ValidatorStatus.InvalidTrigger);
+                        errors.push('negative value in onchain trigger');
+                    }
+                }
+            }
         }
 
         if (errors.length === 0) return { status: ValidatorStatus.Success, errors: [] }

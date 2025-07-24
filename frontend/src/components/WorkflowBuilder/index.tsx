@@ -5,7 +5,7 @@ import { Input } from '../ui/Input'
 import { Label } from '../ui/Label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/Tabs'
 import { Plus, Trash2, Save, Upload, Download, Copy } from 'lucide-react'
-import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { appConfig } from '../../config/app.config'
 import { useAppStore } from '../../store/useAppStore'
 import toast from 'react-hot-toast'
@@ -17,7 +17,7 @@ interface WorkflowFormData {
     validAfter: string
     validUntil: string
     triggers: Array<{
-        type: 'event' | 'cron' | 'manual'
+        type: 'event' | 'cron' | 'manual' | 'onchain'
         params: {
             // Event trigger params
             signature?: string
@@ -30,6 +30,11 @@ interface WorkflowFormData {
             }
             // Cron trigger params
             expression?: string
+            // On-chain trigger params
+            target?: string
+            abi?: string
+            args?: string[]
+            value?: string
         }
     }>
     jobs: Array<{
@@ -356,6 +361,14 @@ export function WorkflowBuilder() {
                                         <Plus className="mr-2 h-4 w-4" />
                                         Add Manual Trigger
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => appendTrigger({ type: 'onchain', params: { target: '', abi: '', args: [], chainId: appConfig.chains.sepolia.id, value: '0' } })}
+                                    >
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add On-chain Trigger
+                                    </Button>
                                 </div>
                             </div>
                         </TabsContent>
@@ -444,7 +457,7 @@ function TriggerItem({ index, control, register, remove, watch }: TriggerItemPro
             const match = signature.match(/(\w+)\s*\((.*)\)/)
             if (!match) return []
 
-            const [_, eventName, argsString] = match
+            const [_, argsString] = match
             if (!argsString) return []
 
             // Split arguments and parse each one
@@ -469,6 +482,44 @@ function TriggerItem({ index, control, register, remove, watch }: TriggerItemPro
         setShowArgs(true)
     }
 
+    const { fields: argFields, append: appendArg, remove: removeArg, replace: replaceArgs } = useFieldArray({
+        control,
+        name: `triggers.${index}.params.args`
+    });
+
+    const [functionArgsParsed, setFunctionArgsParsed] = useState<Array<{ name: string, type: string }>>([]);
+    const [showParsedFunctionArgs, setShowParsedFunctionArgs] = useState(false);
+
+    const parseFunctionABI = (abi: string) => {
+        try {
+            const match = abi.match(/(\w+)\s*\((.*)\)/);
+            if (!match) return [];
+            const [, , argsString] = match;
+            if (!argsString) return [];
+            const args = argsString.split(',').map((arg, idx) => {
+                const parts = arg.trim().split(/\s+/);
+                const type = parts[0];
+                const name = parts.length > 1 ? parts[parts.length - 1] : `arg${idx}`;
+                return { name, type };
+            });
+            return args;
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const handleParseFunctionABI = () => {
+        const abi = watch(`triggers.${index}.params.abi`) || '';
+        const args = parseFunctionABI(abi);
+        if (args.length > 0) {
+            setFunctionArgsParsed(args);
+            setShowParsedFunctionArgs(true);
+            replaceArgs(args.map(() => ''));
+        } else {
+            toast.error('Invalid function ABI format');
+        }
+    };
+
     return (
         <Card>
             <CardContent className="pt-6">
@@ -483,6 +534,7 @@ function TriggerItem({ index, control, register, remove, watch }: TriggerItemPro
                                 <option value="manual">Manual</option>
                                 <option value="event">Event</option>
                                 <option value="cron">Cron</option>
+                                <option value="onchain">On-chain</option>
                             </select>
                         </div>
                         <Button
@@ -596,6 +648,85 @@ function TriggerItem({ index, control, register, remove, watch }: TriggerItemPro
                                 Format: minute hour day month weekday
                             </p>
                         </div>
+                    )}
+
+                    {triggerType === 'onchain' && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Contract Address</Label>
+                                    <Input
+                                        {...register(`triggers.${index}.params.target`)}
+                                        placeholder="0x..."
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Chain</Label>
+                                    <select
+                                        {...register(`triggers.${index}.params.chainId`, { valueAsNumber: true })}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2"
+                                    >
+                                        {Object.values(appConfig.chains).map(chain => (
+                                            <option key={chain.id} value={chain.id}>{chain.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label>Function ABI</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        {...register(`triggers.${index}.params.abi`)}
+                                        placeholder="transfer(address to, uint256 amount)"
+                                        className="flex-1"
+                                    />
+                                    <Button type="button" variant="outline" size="sm" onClick={handleParseFunctionABI}>Parse Args</Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label>Function Arguments</Label>
+                                {showParsedFunctionArgs && functionArgsParsed.length > 0 ? (
+                                    <div className="space-y-2 mt-2">
+                                        {functionArgsParsed.map((arg, argIdx) => (
+                                            <div key={argIdx}>
+                                                <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type})</Label>
+                                                <Input
+                                                    {...register(`triggers.${index}.params.args.${argIdx}`)}
+                                                    placeholder={`Enter ${arg.name}`}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm text-muted-foreground">Manual Arguments</span>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => appendArg('')}> <Plus className="mr-1 h-3 w-3" /> Add Arg </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {argFields.map((field, argIdx) => (
+                                                <div key={field.id} className="flex items-center gap-2">
+                                                    <Input {...register(`triggers.${index}.params.args.${argIdx}`)} placeholder={`Argument ${argIdx + 1}`} className="flex-1" />
+                                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeArg(argIdx)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label>ETH Value (wei, optional)</Label>
+                                <Input
+                                    {...register(`triggers.${index}.params.value`)}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </>
                     )}
                 </div>
             </CardContent>
