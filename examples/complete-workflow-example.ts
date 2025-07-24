@@ -12,7 +12,7 @@ import { IpfsStorage } from '../src/storage/IpfsStorage';
 import { baseSepolia, sepolia } from 'viem/chains';
 import { Signer } from '@zerodev/sdk/types';
 import { addressToEmptyAccount } from '@zerodev/sdk';
-import { ConsoleLogger } from '../src';
+import { PinoLogger } from '../src';
 
 dotenv.config({ path: '.env' });
 
@@ -21,7 +21,7 @@ const WORKFLOW_CONTRACT_ADDRESS = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${
 const OWNER_PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
 const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY as Hex;
 
-const logger = new ConsoleLogger();
+const logger = new PinoLogger();
 
 async function createAndSubmitWorkflow(
   ownerAccount: Signer,
@@ -39,13 +39,13 @@ async function createAndSubmitWorkflow(
       }
     })
     .addOnchainTrigger({
-      target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
-      abi: "mint(address)",
-      args: [ownerAccount.address!],
+      target: "0x8ef6A764475243c2993c94f492C7a4176EB483a9",
+      abi: 'checkValue(bool)',
+      args: [true],
       chainId: ChainId.SEPOLIA,
     })
-    .addCronTrigger("0 */6 * * *")
-    .setCount(2000)
+    .addCronTrigger("*/10 * * * * *")
+    .setCount(5)
     .setValidAfter(Date.now() - 2 * 60 * 60 * 1000)
     .setValidUntil(Date.now() + 10000 * 60 * 60 * 1000)
     .addJob(
