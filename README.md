@@ -56,8 +56,7 @@ const result = await submitWorkflow(
 Create a `.env` file with:
 
 ```env
-DEFAULT_RPC_URL_SEPOLIA=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
-DEFAULT_RPC_URL_MAINNET=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+ZERODEV_API_KEY=<api key>
 IPFS_SERVICE_URL=https://api.ditto.network/ipfs
 ```
 
