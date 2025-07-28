@@ -1,20 +1,12 @@
 import { parseAbiItem, AbiFunction } from 'viem'
+import { baseSepolia, sepolia } from 'viem/chains'
 
 export enum ChainId {
-    ETHEREUM = 1,
-    GOERLI = 5,
     SEPOLIA = 11155111,
-    OPTIMISM = 10,
-    OPTIMISM_GOERLI = 420,
-    ARBITRUM = 42161,
-    ARBITRUM_GOERLI = 421613,
-    POLYGON = 137,
-    MUMBAI = 80001,
-    BASE = 8453,
-    BASE_GOERLI = 84531,
     BASE_SEPOLIA = 84532,
 }
 
+export const CHAINS = [sepolia, baseSepolia]
 export const workflowRegistryAbi = [
     {
         inputs: [{ name: 'ipfsHash', type: 'string' }],
