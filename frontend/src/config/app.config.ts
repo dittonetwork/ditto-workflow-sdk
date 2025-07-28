@@ -24,7 +24,7 @@ export const appConfig = {
 
     // IPFS Configuration
     ipfs: {
-        serviceUrl: 'https://ipfs-service.develop.dittonetwork.io/ipfs',
+        serviceUrl: 'https://ipfs-service.develop.dittonetwork.io',
         gateway: 'https://ipfs.io/ipfs',
     },
 

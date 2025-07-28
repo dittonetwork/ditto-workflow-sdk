@@ -1,5 +1,5 @@
 import React from 'react'
-import { WagmiProvider, createConfig } from 'wagmi'
+import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { sepolia, baseSepolia } from 'wagmi/chains'
@@ -10,7 +10,6 @@ import { WalletConnect } from './components/WalletConnect'
 import { WorkflowBuilder } from './components/WorkflowBuilder'
 import { ExecutorDashboard } from './components/ExecutorDashboard'
 import { TransactionHistory } from './components/TransactionHistory'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/Tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card'
 import { Button } from './components/ui/Button'
 import { Input } from './components/ui/Input'
@@ -28,11 +27,11 @@ import { logger } from './utils/logger'
 
 const queryClient = new QueryClient()
 
-// Используем публичный ключ для демо
+// Use public key for demo
 const DEMO_PROJECT_ID = '2b7de5b47b7e78a4ba0a6db4c6109b3a'
 
 function AppContent() {
-    const { address, chain } = useAccount()
+    const { address } = useAccount()
     const {
         isExecutorMode,
         setIsExecutorMode,
@@ -84,6 +83,14 @@ function AppContent() {
                     workflowBuilder.addEventTrigger(trigger.params)
                 } else if (trigger.type === 'cron') {
                     workflowBuilder.addCronTrigger(trigger.params.expression)
+                } else if (trigger.type === 'onchain') {
+                    workflowBuilder.addOnchainTrigger({
+                        target: trigger.params.target,
+                        abi: trigger.params.abi,
+                        args: trigger.params.args || [],
+                        value: trigger.params.value ? BigInt(trigger.params.value) : undefined,
+                        chainId: trigger.params.chainId,
+                    })
                 }
             })
 
