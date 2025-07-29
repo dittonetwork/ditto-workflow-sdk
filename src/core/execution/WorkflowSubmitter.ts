@@ -4,14 +4,15 @@ import { WorkflowContract } from '../../contracts/WorkflowContract';
 import { serialize } from '../builders/WorkflowSerializer';
 import { Signer } from "@zerodev/sdk/types";
 import { UserOperationReceipt } from 'viem/account-abstraction';
-import { DittoWFRegistryAddress } from '../../utils/constants';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
+import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 
 export async function submitWorkflow(
     workflow: Workflow,
     executorAddress: `0x${string}`,
     storage: IWorkflowStorage,
-    owner: Signer
+    owner: Signer,
+    usePaymaster: boolean = false
 ): Promise<{
     ipfsHash: string;
     userOpHashes: UserOperationReceipt[];
@@ -23,9 +24,9 @@ export async function submitWorkflow(
     }
     const ipfsHash = await storage.upload(serializedData);
 
-    const workflowContract = new WorkflowContract(DittoWFRegistryAddress);
+    const workflowContract = new WorkflowContract(getDittoWFRegistryAddress());
     const userOpHashes = await Promise.all(
-        workflow.jobs.map(job => workflowContract.createWorkflow(ipfsHash, owner, job.chainId))
+        workflow.jobs.map(job => workflowContract.createWorkflow(ipfsHash, owner, job.chainId, usePaymaster))
     );
 
     return {

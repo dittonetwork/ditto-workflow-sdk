@@ -8,7 +8,7 @@ import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { UserOperationReceipt } from 'viem/account-abstraction';
 import { getChainConfig } from '../utils/chainConfigProvider';
-import { workflowRegistryAbi, entryPointVersion } from '../utils/constants';
+import { DittoWFRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
 
 export class WorkflowContract {
@@ -22,7 +22,7 @@ export class WorkflowContract {
     return this.contractAddress;
   }
 
-  async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number): Promise<UserOperationReceipt> {
+  async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
     const chainConfig = getChainConfig();
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
@@ -55,15 +55,15 @@ export class WorkflowContract {
       account: kernelAccount,
       chain: chain,
       bundlerTransport: http(rpcUrl),
-      paymaster: {
+      paymaster: usePaymaster ? {
         getPaymasterData(userOperation) {
           return kernelPaymaster.sponsorUserOperation({ userOperation });
-        },
-      },
+        }
+      } : undefined,
     });
 
     const createWFCalldata = encodeFunctionData({
-      abi: workflowRegistryAbi,
+      abi: DittoWFRegistryAbi,
       functionName: "createWF",
       args: [ipfsHash],
     });

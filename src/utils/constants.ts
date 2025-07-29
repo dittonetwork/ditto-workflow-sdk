@@ -8,19 +8,10 @@ export enum ChainId {
 }
 
 export const CHAINS = [sepolia, baseSepolia, base]
-export const workflowRegistryAbi = [
-    {
-        inputs: [{ name: 'ipfsHash', type: 'string' }],
-        name: 'createWF',
-        outputs: [{ name: 'userOpHash', type: 'bytes' }],
-        type: 'function',
-    },
-] as const
 
 export const DittoWFRegistryAbi = [
     parseAbiItem('function markRun(string)') as AbiFunction,
+    parseAbiItem('function createWF(string) returns (bytes)') as AbiFunction,
 ]
-
-export const DittoWFRegistryAddress = '0x5CE5E78588F4dC8556E2c607134e8b76567AECE6' as `0x${string}`
 
 export const entryPointVersion = "0.7";
