@@ -4,9 +4,10 @@ import { baseSepolia, sepolia } from 'viem/chains'
 export enum ChainId {
     SEPOLIA = 11155111,
     BASE_SEPOLIA = 84532,
+    BASE = 8453,
 }
 
-export const CHAINS = [sepolia, baseSepolia]
+export const CHAINS = [sepolia, baseSepolia, base]
 export const workflowRegistryAbi = [
     {
         inputs: [{ name: 'ipfsHash', type: 'string' }],
