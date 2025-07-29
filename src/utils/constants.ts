@@ -1,5 +1,5 @@
 import { parseAbiItem, AbiFunction } from 'viem'
-import { baseSepolia, sepolia } from 'viem/chains'
+import { baseSepolia, sepolia, base } from 'viem/chains'
 
 export enum ChainId {
     SEPOLIA = 11155111,
