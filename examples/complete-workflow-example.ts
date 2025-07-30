@@ -87,7 +87,8 @@ async function simulateWorkflow(
     storage,
     executorAccount,
     BigInt(0),
-    true
+    false,
+    false
   );
 
   return result;

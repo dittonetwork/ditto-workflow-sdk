@@ -27,7 +27,8 @@ async function simulateWorkflow(
         storage,
         executorAccount,
         BigInt(0),
-        false // Set to true for dry run simulation
+        false, // Set to true for dry run simulation
+        false
     );
 
     return result;

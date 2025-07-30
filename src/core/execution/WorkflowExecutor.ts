@@ -8,8 +8,8 @@ import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
-import { getChainConfig } from '../../utils/chainConfigProvider';
-import { DittoWFRegistryAddress, DittoWFRegistryAbi, entryPointVersion } from '../../utils/constants';
+import { getChainConfig, getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
+import { DittoWFRegistryAbi, entryPointVersion } from '../../utils/constants';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';
 import { Workflow } from '../Workflow';
@@ -25,6 +25,7 @@ export async function execute(
     ipfsHash: string,
     nonce: bigint,
     simulate: boolean = false,
+    usePaymaster: boolean = false,
     logger: Logger = getDefaultLogger()
 ): Promise<{
     success: boolean;
@@ -41,7 +42,8 @@ export async function execute(
                     executorAccount,
                     ipfsHash,
                     nonce,
-                    simulate
+                    simulate,
+                    usePaymaster
                 );
 
                 logger.info(`✅ Session ${i + 1} executed:`, result);
@@ -74,6 +76,7 @@ export async function executeJob(
     ipfsHash: string,
     nonce: bigint,
     simulate: boolean = false,
+    usePaymaster: boolean = false
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
@@ -107,11 +110,11 @@ export async function executeJob(
         account: sessionKeyAccount,
         chain: chain,
         bundlerTransport: http(rpcUrl),
-        paymaster: {
+        paymaster: usePaymaster ? {
             getPaymasterData(userOperation) {
                 return kernelPaymaster.sponsorUserOperation({ userOperation });
-            },
-        },
+            }
+        } : undefined,
     });
 
     const calls = job.steps.map(step => ({
@@ -120,7 +123,7 @@ export async function executeJob(
         data: step.getCalldata() as `0x${string}`,
     }));
     calls.push({
-        to: DittoWFRegistryAddress,
+        to: getDittoWFRegistryAddress(),
         value: BigInt(0),
         data: encodeFunctionData({
             abi: DittoWFRegistryAbi,
@@ -165,6 +168,7 @@ export async function executeFromIpfs(
     executorAccount: Signer,
     nonce: bigint,
     simulate: boolean = false,
+    usePaymaster: boolean = false
 ): Promise<{
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string }>;
@@ -176,7 +180,7 @@ export async function executeFromIpfs(
     if (validation.status !== ValidatorStatus.Success) {
         throw new Error(validatorStatusMessage(validation.status));
     }
-    const results = await execute(workflow, executorAccount, ipfsHash, nonce, simulate);
+    const results = await execute(workflow, executorAccount, ipfsHash, nonce, simulate, usePaymaster);
 
     return {
         success: results.success,

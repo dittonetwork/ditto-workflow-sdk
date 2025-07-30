@@ -5,6 +5,7 @@ type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
 export interface ChainConfigProvider {
     getChainConfig(): Record<number, ChainConfig>
+    getDittoWFRegistryAddress(): `0x${string}`
 }
 
 export class EnvChainConfigProvider implements ChainConfigProvider {
@@ -23,6 +24,9 @@ export class EnvChainConfigProvider implements ChainConfigProvider {
         }
         return config
     }
+    getDittoWFRegistryAddress(): `0x${string}` {
+        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
+    }
 }
 
 export class MemoryChainConfigProvider implements ChainConfigProvider {
@@ -38,6 +42,9 @@ export class MemoryChainConfigProvider implements ChainConfigProvider {
         })
         return base
     }
+    getDittoWFRegistryAddress(): `0x${string}` {
+        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
+    }
 }
 
 let provider: ChainConfigProvider = new EnvChainConfigProvider()
@@ -48,6 +55,10 @@ export function setChainConfigProvider(p: ChainConfigProvider) {
 
 export function getChainConfig(): Record<number, ChainConfig> {
     return provider.getChainConfig()
+}
+
+export function getDittoWFRegistryAddress(): `0x${string}` {
+    return provider.getDittoWFRegistryAddress()
 }
 
 // Re-export enum for consumers expecting it from this module

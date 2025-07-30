@@ -7,7 +7,8 @@ import {
     toRateLimitPolicy,
     toTimestampPolicy
 } from "@zerodev/permissions/policies";
-import { DittoWFRegistryAddress, DittoWFRegistryAbi } from '../../utils/constants';
+import { DittoWFRegistryAbi } from '../../utils/constants';
+import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 import { Address } from 'viem';
 
 interface Permission {
@@ -30,7 +31,7 @@ export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof t
         })),
     }));
     permissions.push({
-        target: DittoWFRegistryAddress,
+        target: getDittoWFRegistryAddress(),
         valueLimit: BigInt(0),
         abi: DittoWFRegistryAbi,
         functionName: "markRun",
