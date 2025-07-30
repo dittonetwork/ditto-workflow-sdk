@@ -30,20 +30,33 @@ export class EnvChainConfigProvider implements ChainConfigProvider {
 }
 
 export class MemoryChainConfigProvider implements ChainConfigProvider {
-    private overrides: Record<number, string> = {}
+    private config: Record<number, ChainConfig> = {}
+    private registryAddress: `0x${string}` = DittoWFRegistryAddress
+
+    setChainConfig(chainId: number, chain: any, rpcUrl: string) {
+        this.config[chainId] = { chainId, chain, rpcUrl }
+    }
+
     setRpcUrl(chainId: number, url: string) {
-        this.overrides[chainId] = url
+        if (this.config[chainId]) {
+            this.config[chainId].rpcUrl = url
+        }
     }
+
+    setDittoWFRegistryAddress(address: `0x${string}`) {
+        this.registryAddress = address
+    }
+
+    removeChain(chainId: number) {
+        delete this.config[chainId]
+    }
+
     getChainConfig(): Record<number, ChainConfig> {
-        const base = new EnvChainConfigProvider().getChainConfig()
-        Object.keys(this.overrides).forEach(k => {
-            const id = Number(k)
-            if (base[id]) base[id].rpcUrl = this.overrides[id]
-        })
-        return base
+        return { ...this.config }
     }
+
     getDittoWFRegistryAddress(): `0x${string}` {
-        return DittoWFRegistryAddress
+        return this.registryAddress
     }
 }
 
