@@ -1,5 +1,5 @@
 import { baseSepolia, mainnet, sepolia } from 'viem/chains'
-import { ChainId, CHAINS } from './constants'
+import { ChainId, CHAINS, DittoWFRegistryAddress } from './constants'
 
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
@@ -25,7 +25,7 @@ export class EnvChainConfigProvider implements ChainConfigProvider {
         return config
     }
     getDittoWFRegistryAddress(): `0x${string}` {
-        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
+        return DittoWFRegistryAddress
     }
 }
 
@@ -43,7 +43,7 @@ export class MemoryChainConfigProvider implements ChainConfigProvider {
         return base
     }
     getDittoWFRegistryAddress(): `0x${string}` {
-        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
+        return DittoWFRegistryAddress
     }
 }
 

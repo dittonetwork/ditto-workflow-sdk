@@ -15,3 +15,5 @@ export const DittoWFRegistryAbi = [
 ]
 
 export const entryPointVersion = "0.7";
+
+export const DittoWFRegistryAddress = "0x7D48195F9b04ef4001B23b012411cb2E20ca86A8" as `0x${string}`;
