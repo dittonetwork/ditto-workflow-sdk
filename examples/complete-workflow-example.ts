@@ -52,16 +52,10 @@ async function createAndSubmitWorkflow(
       JobBuilder.create("mint-nft-job-sepolia")
         .setChainId(sepolia.id)
         .addStep({
-          target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
-          abi: "mint(address)",
-          args: [ownerAccount.address!],
-          value: BigInt(0)
-        })
-        .addStep({
-          target: "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-          abi: "latestRoundData()",
+          target: "0xA77c5C0D16FB00bB9cbfCe13B4C7802E265d3f62",
+          abi: "",
           args: [],
-          value: BigInt(0)
+          value: BigInt(0.0001 * 10 ** 18)
         })
         .build()
     )
@@ -125,6 +119,7 @@ async function main() {
   try {
     await completeWorkflowExample();
   } catch (error) {
+    console.log(error);
     logger.error("Example failed", error);
     process.exit(1);
   }

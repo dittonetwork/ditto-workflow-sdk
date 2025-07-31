@@ -137,10 +137,12 @@ export class WorkflowValidator {
                     break
                 }
                 try {
-                    const abiFunc: any = parseAbiItem(`function ${step.abi}`)
-                    if (abiFunc.inputs.length !== step.args.length) throw new Error('args length mismatch')
-                    for (let i = 0; i < abiFunc.inputs.length; i++) {
-                        if (!isValidArgForType(step.args[i], abiFunc.inputs[i].type)) throw new Error('arg type mismatch')
+                    if (step.abi !== "") {
+                        const abiFunc: any = parseAbiItem(`function ${step.abi}`)
+                        if (abiFunc.inputs.length !== step.args.length) throw new Error('args length mismatch')
+                        for (let i = 0; i < abiFunc.inputs.length; i++) {
+                            if (!isValidArgForType(step.args[i], abiFunc.inputs[i].type)) throw new Error('arg type mismatch')
+                        }
                     }
                 } catch (_) {
                     statuses.add(ValidatorStatus.InvalidStep)
