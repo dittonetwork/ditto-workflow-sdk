@@ -23,15 +23,21 @@ export class Step implements IStep {
       throw new Error(`Invalid target address: ${params.target}`);
     }
 
-    let abiFunction: AbiFunction;
-    try {
-      abiFunction = parseAbiItem(`function ${params.abi}`) as AbiFunction;
-    } catch (error) {
-      throw new Error(`Invalid function signature: ${params.abi}`);
+
+
+    if (params.abi !== "") {
+      let abiFunction: AbiFunction;
+      try {
+        abiFunction = parseAbiItem(`function ${params.abi}`) as AbiFunction;
+
+      } catch (error) {
+        throw new Error(`Invalid function signature: ${params.abi}`);
+      }
+      if (params.args.length !== abiFunction.inputs.length) {
+        throw new Error('Argments length does not match ABI parameter count');
+      }
     }
-    if (params.args.length !== abiFunction.inputs.length) {
-      throw new Error('Arguments length does not match ABI parameter count');
-    }
+
 
     this.target = params.target;
     this.abi = params.abi;
@@ -40,6 +46,9 @@ export class Step implements IStep {
   }
 
   getCalldata(): string {
+    if (this.abi === "") {
+      return "";
+    }
     const abiFunction = parseAbiItem(`function ${this.abi}`) as AbiFunction;
     return encodeFunctionData({
       abi: [abiFunction],
@@ -49,6 +58,9 @@ export class Step implements IStep {
   }
 
   getAbi(): AbiFunction[] {
+    if (this.abi === "") {
+      return [];
+    }
     const abiFunction = parseAbiItem(`function ${this.abi}`) as AbiFunction;
     return [abiFunction];
   }
@@ -62,6 +74,9 @@ export class Step implements IStep {
   }
 
   getFunctionName(): string {
+    if (this.abi === "") {
+      return "";
+    }
     const abiFunction = parseAbiItem(`function ${this.abi}`) as AbiFunction;
     return abiFunction.name;
   }
