@@ -133,5 +133,9 @@ export interface SessionData {
 }
 
 export interface GasEstimate {
-  amount: number;
+  preVerificationGas: bigint;
+  verificationGasLimit: bigint;
+  callGasLimit: bigint;
+  paymasterVerificationGasLimit?: bigint;
+  paymasterPostOpGasLimit?: bigint;
 }
