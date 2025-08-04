@@ -2,7 +2,6 @@ import { Hex, createPublicClient, http, encodeFunctionData } from 'viem';
 import {
     createZeroDevPaymasterClient,
     createKernelAccountClient,
-    gasTokenAddresses,
 } from "@zerodev/sdk";
 import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
@@ -138,16 +137,14 @@ export async function executeJob(
     });
 
     if (simulate) {
-        const estimation = await kernelPaymaster.estimateGasInERC20(
-            {
-                userOperation: userOperation,
-                gasTokenAddress: (gasTokenAddresses as Record<number, any>)[job.chainId]["USDC"],
-                entryPoint: entryPoint.address as `0x${string}`,
-            }
-        );
+        const estimation = await kernelClient.estimateUserOperationGas(userOperation);
         return {
             gas: {
-                amount: estimation.amount,
+                preVerificationGas: estimation.preVerificationGas,
+                verificationGasLimit: estimation.verificationGasLimit,
+                callGasLimit: estimation.callGasLimit,
+                paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
+                paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
             },
             userOp: userOperation,
         };

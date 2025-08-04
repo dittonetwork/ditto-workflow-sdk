@@ -29,15 +29,15 @@ async function createAndSubmitWorkflow(
   storage: IpfsStorage
 ) {
   const workflow = WorkflowBuilder.create(addressToEmptyAccount(ownerAccount.address!))
-    .addEventTrigger({
-      signature: "Transfer(address indexed from, address indexed to, uint256 value)",
-      contractAddress: "0x34bE7f35132E97915633BC1fc020364EA5134863" as `0x${string}`,
-      chainId: ChainId.SEPOLIA,
-      filter: {
-        from: "0x0000000000000000000000000000000000000000", // Mint events
-        to: ownerAccount.address // Mint to owner
-      }
-    })
+    // .addEventTrigger({
+    //   signature: "Transfer(address indexed from, address indexed to, uint256 value)",
+    //   contractAddress: "0x34bE7f35132E97915633BC1fc020364EA5134863" as `0x${string}`,
+    //   chainId: ChainId.SEPOLIA,
+    //   filter: {
+    //     from: "0x0000000000000000000000000000000000000000", // Mint events
+    //     to: ownerAccount.address // Mint to owner
+    //   }
+    // })
     .addOnchainTrigger({
       target: "0x8ef6A764475243c2993c94f492C7a4176EB483a9",
       abi: 'checkValue(bool)',
@@ -52,10 +52,10 @@ async function createAndSubmitWorkflow(
       JobBuilder.create("mint-nft-job-sepolia")
         .setChainId(sepolia.id)
         .addStep({
-          target: "0xA77c5C0D16FB00bB9cbfCe13B4C7802E265d3f62",
-          abi: "",
-          args: [],
-          value: BigInt(0.0001 * 10 ** 18)
+          target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
+          abi: "mint(address)",
+          args: [ownerAccount.address],
+          value: BigInt(0)
         })
         .build()
     )
@@ -81,7 +81,7 @@ async function simulateWorkflow(
     storage,
     executorAccount,
     BigInt(0),
-    false,
+    true,
     false
   );
 
