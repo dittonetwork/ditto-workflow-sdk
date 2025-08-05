@@ -1,13 +1,17 @@
 import { parseAbiItem, AbiFunction } from 'viem'
-import { baseSepolia, sepolia, base } from 'viem/chains'
+import { baseSepolia, sepolia, base, mainnet, arbitrum, polygon, optimism } from 'viem/chains'
 
 export enum ChainId {
     SEPOLIA = 11155111,
     BASE_SEPOLIA = 84532,
     BASE = 8453,
+    ARBITRUM = 42161,
+    POLYGON = 137,
+    OPTIMISM = 10,
+    MAINNET = 1,
 }
 
-export const CHAINS = [sepolia, baseSepolia, base]
+export const CHAINS = [sepolia, baseSepolia, base, mainnet, arbitrum, polygon, optimism]
 
 export const DittoWFRegistryAbi = [
     parseAbiItem('function markRun(string)') as AbiFunction,
