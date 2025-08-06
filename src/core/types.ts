@@ -2,6 +2,17 @@ import { Account, Address, Hex } from "viem";
 import { Chain } from "viem";
 import { ParamOperator } from "@zerodev/session-key";
 
+// Local on-chain comparison operators (do not rely on external SDK)
+export enum OnchainConditionOperator {
+  EQUAL = 0,
+  GREATER_THAN = 1,
+  LESS_THAN = 2,
+  GREATER_THAN_OR_EQUAL = 3,
+  LESS_THAN_OR_EQUAL = 4,
+  NOT_EQUAL = 5,
+  ONE_OF = 6,
+}
+
 export interface Step {
   target: string;
   abi: string;  // Function signature like "transfer(address,uint256)"
@@ -68,6 +79,11 @@ export interface CronTrigger {
   };
 }
 
+export interface OnchainCondition {
+  condition: OnchainConditionOperator;
+  value: any;
+}
+
 export interface OnchainTrigger {
   type: 'onchain';
   params: {
@@ -76,6 +92,7 @@ export interface OnchainTrigger {
     args: readonly any[];
     value?: bigint;
     chainId: number;
+    onchainCondition?: OnchainCondition;
   };
 }
 
@@ -96,6 +113,7 @@ export interface OnchainTriggerParams {
   args: readonly any[];
   value?: bigint;
   chainId: number;
+  onchainCondition?: OnchainCondition;
 }
 
 // ZeroDev Session Types
