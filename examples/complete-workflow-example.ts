@@ -4,6 +4,7 @@ import {
   ChainId,
   executeFromIpfs,
   submitWorkflow,
+  OnchainConditionOperator,
 } from '../src';
 import { privateKeyToAccount } from 'viem/accounts';
 import { Hex } from 'viem';
@@ -40,9 +41,13 @@ async function createAndSubmitWorkflow(
     // })
     .addOnchainTrigger({
       target: "0x8ef6A764475243c2993c94f492C7a4176EB483a9",
-      abi: 'checkValue(bool)',
+      abi: 'checkValue(bool) returns (bool)',
       args: [true],
       chainId: ChainId.SEPOLIA,
+      onchainCondition: {
+        condition: OnchainConditionOperator.EQUAL,
+        value: true
+      }
     })
     .addCronTrigger("*/10 * * * * *")
     .setCount(5)

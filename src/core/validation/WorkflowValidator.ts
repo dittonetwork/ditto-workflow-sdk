@@ -7,6 +7,7 @@ import { toECDSASigner } from '@zerodev/permissions/signers'
 import { getChainConfig } from '../../utils/chainConfigProvider'
 import { entryPointVersion } from '../../utils/constants'
 import { buildPolicies } from '../builders/PermissionBuilder'
+import { OnchainConditionOperator } from '../types'
 import { createSession } from '../builders/SessionService'
 
 export enum ValidatorStatus {
@@ -181,9 +182,30 @@ export class WorkflowValidator {
                             throw new Error('arg type mismatch');
                         }
                     }
+                    // Validate onchainCondition if present
+                    if (t.params.onchainCondition) {
+                        const { condition, value } = t.params.onchainCondition;
+                        if (value === undefined) {
+                            throw new Error('onchainCondition value missing');
+                        }
+                        if (abiFunc.outputs.length === 0) {
+                            throw new Error('ABI must define a return type when using onchainCondition');
+                        }
+                        const outputType: string = abiFunc.outputs[0].type;
+                        const isNumericType = outputType.startsWith('uint') || outputType.startsWith('int');
+                        const numericConditions = [
+                            OnchainConditionOperator.GREATER_THAN,
+                            OnchainConditionOperator.LESS_THAN,
+                            OnchainConditionOperator.GREATER_THAN_OR_EQUAL,
+                            OnchainConditionOperator.LESS_THAN_OR_EQUAL,
+                        ];
+                        if (numericConditions.includes(condition) && !isNumericType) {
+                            throw new Error('non-numeric return type used with GREATER/LESS condition');
+                        }
+                    }
                 } catch (_) {
                     statuses.add(ValidatorStatus.InvalidTrigger);
-                    errors.push('invalid abi or args in onchain trigger');
+                    errors.push('invalid abi, args, or onchainCondition in onchain trigger');
                 }
                 if (!chainConfig[t.params.chainId]) {
                     statuses.add(ValidatorStatus.UnsupportedChainId);
