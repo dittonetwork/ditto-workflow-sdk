@@ -199,6 +199,36 @@ const workflow = WorkflowBuilder.create(owner)
       value: 0n,
     },
   })
+  .addOnchainTrigger({
+    chainId: ChainId.SEPOLIA,
+    target: '0xPaUsEd000000000000000000000000000000000000',
+    abi: 'isPaused()', // returns (bool) assumed
+    args: [],
+    onchainCondition: {
+      condition: OnchainConditionOperator.EQUAL,
+      value: false,
+    },
+  })
+  .addOnchainTrigger({
+    chainId: ChainId.BASE_SEPOLIA,
+    target: '0xdeadBEEFdeadbeEFDEAdBeeFdEadbeEFDead0001',
+    abi: 'totalSupply() view returns (uint256)',
+    args: [],
+    onchainCondition: {
+      condition: OnchainConditionOperator.LESS_THAN_OR_EQUAL,
+      value: 1_000_000n,
+    },
+  })
+  .addOnchainTrigger({
+    chainId: ChainId.SEPOLIA,
+    target: '0x1111111111111111111111111111111111111111',
+    abi: 'symbol() view returns (string)',
+    args: [],
+    onchainCondition: {
+      condition: OnchainConditionOperator.ONE_OF,
+      value: ['USDC', 'USDT', 'DAI'],
+    },
+  })
   // limits
   .setCount(3)
   .setInterval(300)
