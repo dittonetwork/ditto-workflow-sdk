@@ -14,10 +14,10 @@ import { baseSepolia, sepolia } from 'viem/chains';
 import { Signer } from '@zerodev/sdk/types';
 import { addressToEmptyAccount } from '@zerodev/sdk';
 import { PinoLogger } from '../src';
+import { IpfsServiceUrl } from '../src/utils/constants';
 
 dotenv.config({ path: '.env' });
 
-const IPFS_SERVICE_URL = process.env.IPFS_SERVICE_URL || 'https://api.ditto.network/ipfs';
 const WORKFLOW_CONTRACT_ADDRESS = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`;
 const OWNER_PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
 const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY as Hex;
@@ -103,7 +103,7 @@ async function completeWorkflowExample() {
   const executorAddress = executorAccount.address;
 
   //ipfs storage
-  const storage = new IpfsStorage(IPFS_SERVICE_URL);
+  const storage = new IpfsStorage(IpfsServiceUrl);
 
   const response = await createAndSubmitWorkflow(ownerAccount, executorAddress, storage);
 

@@ -60,12 +60,12 @@ OnchainTrigger {
   params: {
     chainId:          number,
     target:           Address,
-    abi:              string,               // view / pure function
+    abi:              string,               // view / pure function. If no `returns` clause is present a default `returns (bool)` is assumed
     args:             readonly any[],       // call arguments
     value?:           bigint,               // ETH value to send (optional, usually 0)
     onchainCondition?: {
-      condition: OnchainConditionOperator,
-      value:     any
+      condition: OnchainConditionOperator,   // comparison operator
+      value:     any                         // literal to compare with
     }
   }
 }
@@ -91,6 +91,17 @@ Step {
 }
 ```
 
+Example: native token transfer step
+
+```typescript
+{
+  target: '0xRecipientAddress',
+  abi: '',
+  args: [],
+  value: 10_000_000_000_000_000n
+}
+```
+
 ### Trigger evaluation
 
 All triggers attached to a workflow are evaluated by the off-chain executor before each run:
@@ -99,7 +110,12 @@ All triggers attached to a workflow are evaluated by the off-chain executor befo
 
 • **EventTrigger** – satisfied when an event that matches `signature` (and `filter`, if provided) is observed on the specified `chainId`. The executor stores the block number of the last match to prevent double execution.
 
-• **OnchainTrigger** – satisfied when the first value returned by the call to `abi` meets the comparison defined by `onchainCondition`. Numeric operators (`GREATER_THAN`, `LESS_THAN`, etc.) are only allowed for numeric return types. For `ONE_OF` the return value must be present inside the supplied array.
+• **OnchainTrigger** – the executor performs a read-only call to `target.abi(args, value)`; the FIRST value returned by the function is compared with `onchainCondition.value` using `condition`.  
+  • Supported Solidity return types: `bool`, any `uint*/int*`, `address`, fixed-length `bytesN` or `string`.  
+  • Arithmetic comparisons (`GREATER_THAN`, `LESS_THAN`, ≥, ≤) are valid only for numeric types (`uint*/int*`).  
+  • Equality operators (`EQUAL`, `NOT_EQUAL`) work for any primitive type.  
+  • `ONE_OF` expects the contract value to be contained in an array supplied in `value`.  
+  If the ABI string omits an explicit `returns` clause the SDK assumes the function returns a single `bool`. This allows you to specify simple boolean getters like `isActive()` without writing `isActive() view returns (bool)`.
 
 All triggers in the `triggers` array are combined with logical **AND**. If the array is empty the workflow is considered always eligible for execution.
 
@@ -143,48 +159,6 @@ sequenceDiagram
 npm install @ditto/workflow-sdk
 ```
 
-### Building & Publishing a Workflow
-
-```typescript
-import {
-  WorkflowBuilder,
-  JobBuilder,
-  submitWorkflow,
-  IpfsStorage,
-  ChainId,
-} from '@ditto/workflow-sdk';
-
-const owner = /* ZeroDev Signer */;
-const storage = new IpfsStorage('https://api.ditto.network/ipfs');
-
-const workflow = WorkflowBuilder.create(owner)
-  .setCount(5)
-  .setValidUntil(Date.now() + 24 * 60 * 60 * 1000)
-  .addTriggerCron('0 */1 * * *')
-  .addJob(
-    JobBuilder.create('disperse')
-      .setChainId(ChainId.SEPOLIA)
-      .addStep({
-        target: '0x…',
-        abi: 'transfer(address,uint256)',
-        args: ['0x…', BigInt(1e18)],
-      })
-      .build(),
-  )
-  .build();
-
-const { ipfsHash, txHash } = await submitWorkflow(
-  workflow,
-  /* executor */ owner.address,
-  storage,
-  owner,
-);
-```
-
-### Execution (off-chain executor)
-
----
-
 ### Comprehensive example
 
 Below is a minimal yet complete snippet that exercises every concept: three trigger types, multiple jobs on different chains and full submission / simulation:
@@ -201,10 +175,11 @@ import {
 } from '@ditto/workflow-sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia, sepolia } from 'viem/chains';
+import { IpfsServiceUrl } from '@ditto/workflow-sdk/src/utils/constants';
 
 const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-const executor = privateKeyToAccount(process.env.EXECUTOR_KEY as `0x${string}`);
-const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+const executorAddress = process.env.EXECUTOR_ADDRESS as `0x${string}`;
+const storage = new IpfsStorage(IpfsServiceUrl);
 
 const workflow = WorkflowBuilder.create(owner)
   // triggers
@@ -235,7 +210,15 @@ const workflow = WorkflowBuilder.create(owner)
       .addStep({
         target: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
         abi: 'transfer(address,uint256)',
-        args: [executor.address, 1_000_000n],
+        args: [executorAddress, 1_000_000n],
+      })
+      // native token transfer step
+      .addStep({
+        target: executorAddress,
+        abi: '',
+        args: [],
+        value: 10_000_000_000_000_000n,
+     
       })
       .build(),
   )
@@ -252,9 +235,9 @@ const workflow = WorkflowBuilder.create(owner)
   )
   .build();
 
-const { ipfsHash } = await submitWorkflow(workflow, executor.address, storage, owner);
+const { ipfsHash } = await submitWorkflow(workflow, executorAddress, storage, owner);
 
-await executeFromIpfs(ipfsHash, storage, executor, 0n, true);
+await executeFromIpfs(ipfsHash, storage, executor, 0n, /*simulate=*/ true);
 ```
 
 This example demonstrates:
@@ -262,16 +245,6 @@ This example demonstrates:
 * `CronTrigger`, `EventTrigger`, `OnchainTrigger` working together.
 * Two `Job` objects targeting different EVM chains.
 * Submission to IPFS + registry and dry-run execution (simulate=true).
-
----
-
-```typescript
-import { executeFromIpfs } from '@ditto/workflow-sdk';
-
-await executeFromIpfs(ipfsHash, storage, executorSigner, 0n);
-```
-
----
 
 ## 5. Validation
 
@@ -299,14 +272,3 @@ ZERODEV_API_KEY=<api-key>
 IPFS_SERVICE_URL=https://api.ditto.network/ipfs
 ```
 
----
-
-## 8. Roadmap
-
-1. **Visual Workflow Builder** – GUI for composing JSON descriptions.
-2. **Docker runner** – daemon service that executes published workflows.
-3. **Monitoring** – Prometheus / Datadog metrics for execution success & performance.
-
----
-
-MIT License
