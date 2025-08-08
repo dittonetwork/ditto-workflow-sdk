@@ -33,8 +33,8 @@ export class PinoLogger implements Logger {
     }
 }
 
-export function getDefaultLogger(): Logger {
-    if (process.env.SDK_PINO_LOGGER === 'true') {
+export function getDefaultLogger(isPino: boolean = true): Logger {
+    if (isPino) {
         return new PinoLogger();
     }
     return new ConsoleLogger();

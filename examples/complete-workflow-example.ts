@@ -71,7 +71,9 @@ async function createAndSubmitWorkflow(
     workflow,
     executorAccountAddress,
     storage,
-    ownerAccount
+    ownerAccount,
+    false,
+    process.env.ZERODEV_API_KEY as string,
   );
 
   return response;
@@ -86,8 +88,9 @@ async function simulateWorkflow(
     ipfsHash,
     storage,
     executorAccount,
-    BigInt(0),
-    true,
+    false,
+    process.env.ZERODEV_API_KEY as string,
+    false,
     false
   );
 

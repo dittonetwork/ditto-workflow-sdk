@@ -56,6 +56,7 @@ export class WorkflowValidator {
     static async validate(
         workflow: Workflow,
         executor: Signer,
+        zerodevApiKey: string,
         options: { checkSessions?: boolean } = {},
     ): Promise<{ status: ValidatorStatus; errors: string[] }> {
         const { checkSessions = false } = options
@@ -98,7 +99,7 @@ export class WorkflowValidator {
             }
         }
 
-        const chainConfig = getChainConfig()
+        const chainConfig = getChainConfig(zerodevApiKey)
 
         for (const job of workflow.jobs) {
             if (checkSessions && !job.session) {

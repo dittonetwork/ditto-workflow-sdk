@@ -11,7 +11,9 @@ import type { Step as IStep, Job as IJob } from '../types';
 export async function serialize(
     workflow: Workflow,
     executorAddress: Address,
-    owner: Signer
+    owner: Signer,
+    prodContract: boolean,
+    zerodevApiKey: string
 ): Promise<SerializedWorkflowData> {
     return {
         workflow: {
@@ -26,7 +28,7 @@ export async function serialize(
                     args: step.args,
                     value: (step.value || BigInt(0)).toString(),
                 })),
-                session: await createSession(workflow, job, executorAddress, owner),
+                session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
             }))),
             count: workflow.count,
             validAfter: workflow.validAfter instanceof Date ? Math.floor(workflow.validAfter.getTime() / 1000) : workflow.validAfter,
