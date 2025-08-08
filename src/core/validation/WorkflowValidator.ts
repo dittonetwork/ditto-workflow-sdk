@@ -181,7 +181,7 @@ export class WorkflowValidator {
                     }
                     for (let i = 0; i < abiFunc.inputs.length; i++) {
                         if (!isValidArgForType(t.params.args[i], abiFunc.inputs[i].type)) {
-                            throw new Error('arg type mismatch');
+                            throw new Error('arg type mismatch in onchain trigger');
                         }
                     }
                     // Validate onchainCondition if present
