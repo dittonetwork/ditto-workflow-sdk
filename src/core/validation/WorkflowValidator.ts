@@ -46,7 +46,7 @@ export function validatorStatusMessage(status: ValidatorStatus): string {
 function isValidArgForType(arg: any, type: string): boolean {
     if (type.startsWith('address')) return typeof arg === 'string' && isAddress(arg as Address)
     if (type.startsWith('uint') || type.startsWith('int')) return typeof arg === 'bigint' || typeof arg === 'number' || (typeof arg === 'string' && /^\d+$/.test(arg))
-    if (type === 'bool') return typeof arg === 'boolean'
+    if (type === 'bool') return typeof arg === 'boolean' || typeof arg === 'string' && /^(true|false)$/.test(arg)
     if (type.startsWith('bytes')) return typeof arg === 'string' && /^0x[0-9a-fA-F]*$/.test(arg)
     if (type === 'string') return typeof arg === 'string'
     return true
