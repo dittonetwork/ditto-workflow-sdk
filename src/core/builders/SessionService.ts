@@ -18,9 +18,11 @@ export async function createSession(
     workflow: Workflow,
     job: Job,
     executorAddress: Address,
-    owner: Signer
+    owner: Signer,
+    prodContract: boolean,
+    zerodevApiKey: string
 ): Promise<string> {
-    const chainConfig = getChainConfig();
+    const chainConfig = getChainConfig(zerodevApiKey);
     const chain = chainConfig[job.chainId]?.chain;
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
     const entryPoint = getEntryPoint(entryPointVersion);
@@ -29,7 +31,7 @@ export async function createSession(
         chain: chain,
     });
 
-    const policies: ReturnType<typeof buildPolicies> = buildPolicies(workflow, job);
+    const policies: ReturnType<typeof buildPolicies> = buildPolicies(workflow, prodContract, job);
 
     const sessionAccountSigner = await toEmptyECDSASigner(executorAddress);
     const sessionKeyValidator = await toPermissionValidator(publicClient, {

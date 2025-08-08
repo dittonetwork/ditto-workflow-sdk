@@ -22,8 +22,8 @@ export class WorkflowContract {
     return this.contractAddress;
   }
 
-  async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
-    const chainConfig = getChainConfig();
+  async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, zerodevApiKey: string, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
+    const chainConfig = getChainConfig(zerodevApiKey);
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
     const publicClient = createPublicClient({

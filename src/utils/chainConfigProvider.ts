@@ -1,16 +1,9 @@
-import { baseSepolia, mainnet, sepolia } from 'viem/chains'
 import { ChainId, CHAINS } from './constants'
 
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
-export interface ChainConfigProvider {
-    getChainConfig(): Record<number, ChainConfig>
-    getDittoWFRegistryAddress(): `0x${string}`
-}
-
-export class EnvChainConfigProvider implements ChainConfigProvider {
-    getChainConfig(): Record<number, ChainConfig> {
-        const zerodevApiKey = process.env.ZERODEV_API_KEY
+export class StatelessChainConfigProvider {
+    static getChainConfig(zerodevApiKey: string): Record<number, ChainConfig> {
         if (!zerodevApiKey) {
             throw new Error('ZERODEV_API_KEY is not set')
         }
@@ -24,56 +17,20 @@ export class EnvChainConfigProvider implements ChainConfigProvider {
         }
         return config
     }
-    getDittoWFRegistryAddress(): `0x${string}` {
-        if (!process.env.WORKFLOW_CONTRACT_ADDRESS) {
-            throw new Error('DITTO_WF_REGISTRY_ADDRESS is not set')
+    static getDittoWFRegistryAddress(isProd: boolean): `0x${string}` {
+        if (isProd) {
+            return '0x7D48195F9b04ef4001B23b012411cb2E20ca86A8' as `0x${string}`
         }
-        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
+        return '0x580F57c1668d9272aE54168f630cc84b10ec65F7' as `0x${string}`
     }
 }
 
-export class MemoryChainConfigProvider implements ChainConfigProvider {
-    private config: Record<number, ChainConfig> = {}
-    private registryAddress: `0x${string}` = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
-    setChainConfig(chainId: number, chain: any, rpcUrl: string) {
-        this.config[chainId] = { chainId, chain, rpcUrl }
-    }
-
-    setRpcUrl(chainId: number, url: string) {
-        if (this.config[chainId]) {
-            this.config[chainId].rpcUrl = url
-        }
-    }
-
-    setDittoWFRegistryAddress(address: `0x${string}`) {
-        this.registryAddress = address
-    }
-
-    removeChain(chainId: number) {
-        delete this.config[chainId]
-    }
-
-    getChainConfig(): Record<number, ChainConfig> {
-        return { ...this.config }
-    }
-
-    getDittoWFRegistryAddress(): `0x${string}` {
-        return this.registryAddress
-    }
+export function getChainConfig(zerodevApiKey: string): Record<number, ChainConfig> {
+    return StatelessChainConfigProvider.getChainConfig(zerodevApiKey)
 }
 
-let provider: ChainConfigProvider = new EnvChainConfigProvider()
-
-export function setChainConfigProvider(p: ChainConfigProvider) {
-    provider = p
-}
-
-export function getChainConfig(): Record<number, ChainConfig> {
-    return provider.getChainConfig()
-}
-
-export function getDittoWFRegistryAddress(): `0x${string}` {
-    return provider.getDittoWFRegistryAddress()
+export function getDittoWFRegistryAddress(isProd: boolean): `0x${string}` {
+    return StatelessChainConfigProvider.getDittoWFRegistryAddress(isProd)
 }
 
 // Re-export enum for consumers expecting it from this module

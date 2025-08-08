@@ -19,7 +19,7 @@ interface Permission {
     args: (null | { condition: ParamCondition; value: any })[];
 }
 
-export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof toCallPolicy>[] {
+export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
     const permissions: Permission[] = job.steps.map(step => ({
         target: step.target as `0x${string}`,
         valueLimit: step.value ?? BigInt(0),
@@ -31,7 +31,7 @@ export function buildPolicies(workflow: Workflow, job: Job): ReturnType<typeof t
         })),
     }));
     permissions.push({
-        target: getDittoWFRegistryAddress(),
+        target: getDittoWFRegistryAddress(prodContract),
         valueLimit: BigInt(0),
         abi: DittoWFRegistryAbi,
         functionName: "markRun",

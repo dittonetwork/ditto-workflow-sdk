@@ -46,7 +46,7 @@ export function validatorStatusMessage(status: ValidatorStatus): string {
 function isValidArgForType(arg: any, type: string): boolean {
     if (type.startsWith('address')) return typeof arg === 'string' && isAddress(arg as Address)
     if (type.startsWith('uint') || type.startsWith('int')) return typeof arg === 'bigint' || typeof arg === 'number' || (typeof arg === 'string' && /^\d+$/.test(arg))
-    if (type === 'bool') return typeof arg === 'boolean'
+    if (type === 'bool') return typeof arg === 'boolean' || typeof arg === 'string' && /^(true|false)$/.test(arg)
     if (type.startsWith('bytes')) return typeof arg === 'string' && /^0x[0-9a-fA-F]*$/.test(arg)
     if (type === 'string') return typeof arg === 'string'
     return true
@@ -56,6 +56,7 @@ export class WorkflowValidator {
     static async validate(
         workflow: Workflow,
         executor: Signer,
+        zerodevApiKey: string,
         options: { checkSessions?: boolean } = {},
     ): Promise<{ status: ValidatorStatus; errors: string[] }> {
         const { checkSessions = false } = options
@@ -98,7 +99,7 @@ export class WorkflowValidator {
             }
         }
 
-        const chainConfig = getChainConfig()
+        const chainConfig = getChainConfig(zerodevApiKey)
 
         for (const job of workflow.jobs) {
             if (checkSessions && !job.session) {
@@ -145,7 +146,8 @@ export class WorkflowValidator {
                             if (!isValidArgForType(step.args[i], abiFunc.inputs[i].type)) throw new Error('arg type mismatch')
                         }
                     }
-                } catch (_) {
+                } catch (error) {
+                    console.log(error)
                     statuses.add(ValidatorStatus.InvalidStep)
                     errors.push(`invalid abi or args in step of job ${job.id}`)
                     break
@@ -179,7 +181,7 @@ export class WorkflowValidator {
                     }
                     for (let i = 0; i < abiFunc.inputs.length; i++) {
                         if (!isValidArgForType(t.params.args[i], abiFunc.inputs[i].type)) {
-                            throw new Error('arg type mismatch');
+                            throw new Error('arg type mismatch in onchain trigger');
                         }
                     }
                     // Validate onchainCondition if present
@@ -203,7 +205,7 @@ export class WorkflowValidator {
                             throw new Error('non-numeric return type used with GREATER/LESS condition');
                         }
                     }
-                } catch (_) {
+                } catch (error) {
                     statuses.add(ValidatorStatus.InvalidTrigger);
                     errors.push('invalid abi, args, or onchainCondition in onchain trigger');
                 }
