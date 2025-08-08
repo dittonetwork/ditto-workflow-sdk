@@ -46,7 +46,7 @@ async function createAndSubmitWorkflow(
         .addStep({
           target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
           abi: "returnBool(bool value)",
-          args: ['false'],
+          args: [false],
           value: BigInt(0)
         })
         .build()

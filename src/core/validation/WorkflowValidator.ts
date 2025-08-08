@@ -146,7 +146,8 @@ export class WorkflowValidator {
                             if (!isValidArgForType(step.args[i], abiFunc.inputs[i].type)) throw new Error('arg type mismatch')
                         }
                     }
-                } catch (_) {
+                } catch (error) {
+                    console.log(error)
                     statuses.add(ValidatorStatus.InvalidStep)
                     errors.push(`invalid abi or args in step of job ${job.id}`)
                     break
