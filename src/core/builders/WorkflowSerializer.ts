@@ -25,7 +25,7 @@ export async function serialize(
                 steps: job.steps.map(step => ({
                     target: step.target,
                     abi: step.abi,
-                    args: step.args,
+                    args: step.args.map(arg => arg.toString()),
                     value: (step.value || BigInt(0)).toString(),
                 })),
                 session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
