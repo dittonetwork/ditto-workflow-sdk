@@ -14,13 +14,14 @@ import { baseSepolia, sepolia } from 'viem/chains';
 import { Signer } from '@zerodev/sdk/types';
 import { addressToEmptyAccount } from '@zerodev/sdk';
 import { PinoLogger } from '../src';
-import { IpfsServiceUrl } from '../src/utils/constants';
+// import { IpfsServiceUrl } from '../src/utils/constants';
 
 dotenv.config({ path: '.env' });
 
 const WORKFLOW_CONTRACT_ADDRESS = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`;
 const OWNER_PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
 const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY as Hex;
+const IPFS_SERVICE_URL = process.env.IPFS_SERVICE_URL as string;
 
 const logger = new PinoLogger();
 
@@ -40,13 +41,13 @@ async function createAndSubmitWorkflow(
     //   }
     // })
     .addOnchainTrigger({
-      target: "0x8ef6A764475243c2993c94f492C7a4176EB483a9",
-      abi: 'checkValue(bool) returns (bool)',
-      args: [true],
+      target: "0x23D20B93a238Da60486b80E03aFCF4B8aa3c7af6",
+      abi: 'returnInt(int256) returns (int256)',
+      args: [100],
       chainId: ChainId.SEPOLIA,
       onchainCondition: {
-        condition: OnchainConditionOperator.EQUAL,
-        value: true
+        condition: OnchainConditionOperator.GREATER_THAN,
+        value: 99
       }
     })
     .addCronTrigger("*/10 * * * * *")
@@ -103,7 +104,7 @@ async function completeWorkflowExample() {
   const executorAddress = executorAccount.address;
 
   //ipfs storage
-  const storage = new IpfsStorage(IpfsServiceUrl);
+  const storage = new IpfsStorage(IPFS_SERVICE_URL);
 
   const response = await createAndSubmitWorkflow(ownerAccount, executorAddress, storage);
 
