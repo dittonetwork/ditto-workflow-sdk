@@ -1,5 +1,5 @@
 import { baseSepolia, mainnet, sepolia } from 'viem/chains'
-import { ChainId, CHAINS, DittoWFRegistryAddress } from './constants'
+import { ChainId, CHAINS } from './constants'
 
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
@@ -25,14 +25,16 @@ export class EnvChainConfigProvider implements ChainConfigProvider {
         return config
     }
     getDittoWFRegistryAddress(): `0x${string}` {
-        return DittoWFRegistryAddress
+        if (!process.env.WORKFLOW_CONTRACT_ADDRESS) {
+            throw new Error('DITTO_WF_REGISTRY_ADDRESS is not set')
+        }
+        return process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
     }
 }
 
 export class MemoryChainConfigProvider implements ChainConfigProvider {
     private config: Record<number, ChainConfig> = {}
-    private registryAddress: `0x${string}` = DittoWFRegistryAddress
-
+    private registryAddress: `0x${string}` = process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`
     setChainConfig(chainId: number, chain: any, rpcUrl: string) {
         this.config[chainId] = { chainId, chain, rpcUrl }
     }
