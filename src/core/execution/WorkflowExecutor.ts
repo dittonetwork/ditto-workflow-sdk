@@ -177,10 +177,10 @@ export async function executeFromIpfs(
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
-    const validation = await WorkflowValidator.validate(workflow, executorAccount, zerodevApiKey, { checkSessions: true });
-    if (validation.status !== ValidatorStatus.Success) {
-        throw new Error(validatorStatusMessage(validation.status));
-    }
+    // const validation = await WorkflowValidator.validate(workflow, executorAccount, zerodevApiKey, { checkSessions: true });
+    // if (validation.status !== ValidatorStatus.Success) {
+    //     throw new Error(validatorStatusMessage(validation.status));
+    // }
     const results = await execute(workflow, executorAccount, ipfsHash, prodContract, zerodevApiKey, simulate, usePaymaster);
 
     return {

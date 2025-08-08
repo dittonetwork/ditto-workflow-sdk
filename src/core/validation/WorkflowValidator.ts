@@ -205,7 +205,7 @@ export class WorkflowValidator {
                             throw new Error('non-numeric return type used with GREATER/LESS condition');
                         }
                     }
-                } catch (_) {
+                } catch (error) {
                     statuses.add(ValidatorStatus.InvalidTrigger);
                     errors.push('invalid abi, args, or onchainCondition in onchain trigger');
                 }

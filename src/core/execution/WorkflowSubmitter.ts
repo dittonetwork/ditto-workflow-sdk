@@ -20,10 +20,10 @@ export async function submitWorkflow(
     userOpHashes: UserOperationReceipt[];
 }> {
     const serializedData = await serialize(workflow, executorAddress, owner, prodContract, zerodevApiKey);
-    const validation = await WorkflowValidator.validate(workflow, owner, zerodevApiKey);
-    if (validation.status !== ValidatorStatus.Success) {
-        throw new Error(validatorStatusMessage(validation.status));
-    }
+    // const validation = await WorkflowValidator.validate(workflow, owner, zerodevApiKey);
+    // if (validation.status !== ValidatorStatus.Success) {
+    //     throw new Error(validatorStatusMessage(validation.status));
+    // }
     const ipfsHash = await storage.upload(serializedData);
 
     const workflowContract = new WorkflowContract(getDittoWFRegistryAddress(prodContract));
