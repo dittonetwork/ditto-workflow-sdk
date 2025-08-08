@@ -45,6 +45,16 @@ export async function execute(
                     usePaymaster
                 );
 
+                if (result.error) {
+                    logger.error(`❌ Session ${i + 1} failed:`, result.error);
+                    return {
+                        success: false,
+                        error: result.error,
+                        userOp: result.userOp,
+                        chainId: job.chainId,
+                    };
+                }
+
                 logger.info(`✅ Session ${i + 1} executed:`, result);
                 return {
                     success: true,
@@ -79,7 +89,8 @@ export async function executeJob(
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
-    userOp?: UserOperation
+    userOp?: UserOperation,
+    error?: string,
 }> {
     const chainConfig = getChainConfig();
     const chain = chainConfig[job.chainId]?.chain;
@@ -136,27 +147,34 @@ export async function executeJob(
         calls: calls,
     });
 
-    if (simulate) {
-        const estimation = await kernelClient.estimateUserOperationGas(userOperation);
+    try {
+        if (simulate) {
+            const estimation = await kernelClient.estimateUserOperationGas(userOperation);
+            return {
+                gas: {
+                    preVerificationGas: estimation.preVerificationGas,
+                    verificationGasLimit: estimation.verificationGasLimit,
+                    callGasLimit: estimation.callGasLimit,
+                    paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
+                    paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
+                },
+                userOp: userOperation,
+            };
+        }
+        const userOpHash = await kernelClient.sendUserOperation({
+            calls: calls,
+        });
+        const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
         return {
-            gas: {
-                preVerificationGas: estimation.preVerificationGas,
-                verificationGasLimit: estimation.verificationGasLimit,
-                callGasLimit: estimation.callGasLimit,
-                paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
-                paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
-            },
+            result: result,
             userOp: userOperation,
         };
+    } catch (error) {
+        return {
+            userOp: userOperation,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        }
     }
-    const userOpHash = await kernelClient.sendUserOperation({
-        calls: calls,
-    });
-    const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
-    return {
-        result: result,
-        userOp: userOperation,
-    };
 }
 
 export async function executeFromIpfs(
