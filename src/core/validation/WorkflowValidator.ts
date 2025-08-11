@@ -190,10 +190,9 @@ export class WorkflowValidator {
                         if (value === undefined) {
                             throw new Error('onchainCondition value missing');
                         }
-                        if (abiFunc.outputs.length === 0) {
-                            throw new Error('ABI must define a return type when using onchainCondition');
-                        }
-                        const outputType: string = abiFunc.outputs[0].type;
+                        const outputType: string = (abiFunc.outputs && abiFunc.outputs.length > 0)
+                            ? abiFunc.outputs[0].type
+                            : 'bool';
                         const isNumericType = outputType.startsWith('uint') || outputType.startsWith('int');
                         const numericConditions = [
                             OnchainConditionOperator.GREATER_THAN,

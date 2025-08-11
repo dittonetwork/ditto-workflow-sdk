@@ -6,7 +6,34 @@ import { Workflow } from '../Workflow';
 import { createSession } from './SessionService';
 import { SerializedWorkflowDataSchema } from '../validation/WorkflowSchema';
 import { WorkflowError, WorkflowErrorCode } from '../WorkflowError';
-import type { Step as IStep, Job as IJob } from '../types';
+import { OnchainConditionOperator, type Step as IStep, type Job as IJob } from '../types';
+
+function conditionEnumToString(cond: OnchainConditionOperator): string {
+    switch (cond) {
+        case OnchainConditionOperator.EQUAL: return 'EQUAL';
+        case OnchainConditionOperator.GREATER_THAN: return 'GREATER_THAN';
+        case OnchainConditionOperator.LESS_THAN: return 'LESS_THAN';
+        case OnchainConditionOperator.GREATER_THAN_OR_EQUAL: return 'GREATER_THAN_OR_EQUAL';
+        case OnchainConditionOperator.LESS_THAN_OR_EQUAL: return 'LESS_THAN_OR_EQUAL';
+        case OnchainConditionOperator.NOT_EQUAL: return 'NOT_EQUAL';
+        case OnchainConditionOperator.ONE_OF: return 'ONE_OF';
+        default: return String(cond);
+    }
+}
+
+function conditionStringToEnum(text: string): OnchainConditionOperator {
+    const upper = (text || '').toUpperCase();
+    switch (upper) {
+        case 'EQUAL': return OnchainConditionOperator.EQUAL;
+        case 'GREATER_THAN': return OnchainConditionOperator.GREATER_THAN;
+        case 'LESS_THAN': return OnchainConditionOperator.LESS_THAN;
+        case 'GREATER_THAN_OR_EQUAL': return OnchainConditionOperator.GREATER_THAN_OR_EQUAL;
+        case 'LESS_THAN_OR_EQUAL': return OnchainConditionOperator.LESS_THAN_OR_EQUAL;
+        case 'NOT_EQUAL': return OnchainConditionOperator.NOT_EQUAL;
+        case 'ONE_OF': return OnchainConditionOperator.ONE_OF;
+        default: return OnchainConditionOperator.EQUAL;
+    }
+}
 
 function extractInputTypesFromAbiSignature(signature: string): string[] {
     const match = signature.match(/^\s*[^\s(]+\s*\(([^)]*)\)/);
@@ -73,7 +100,25 @@ export async function serialize(
     return {
         workflow: {
             owner: workflow.owner.address,
-            triggers: workflow.triggers.map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t)),
+            triggers: workflow.triggers
+                .map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t))
+                .map((t: any) => {
+                    if (t?.type === 'onchain' && t.params?.onchainCondition?.condition !== undefined) {
+                        const cond = t.params.onchainCondition.condition;
+                        const condStr = typeof cond === 'number' ? conditionEnumToString(cond) : String(cond);
+                        return {
+                            ...t,
+                            params: {
+                                ...t.params,
+                                onchainCondition: {
+                                    ...t.params.onchainCondition,
+                                    condition: condStr,
+                                },
+                            },
+                        };
+                    }
+                    return t;
+                }),
             jobs: await Promise.all(workflow.jobs.map(async job => ({
                 id: job.id,
                 chainId: job.chainId,
@@ -116,6 +161,10 @@ export async function deserialize(
             owner: addressToEmptyAccount(validatedData.workflow.owner as `0x${string}`),
             triggers: validatedData.workflow.triggers.map((t): any => {
                 if (t.type === 'onchain') {
+                    const oc = (t as any).params?.onchainCondition;
+                    const mappedCondition = oc && typeof oc.condition === 'string'
+                        ? conditionStringToEnum(oc.condition)
+                        : oc?.condition;
                     return {
                         ...t,
                         params: {
@@ -124,6 +173,9 @@ export async function deserialize(
                             value: (t as any).params?.value !== undefined && (t as any).params?.value !== null
                                 ? BigInt((t as any).params.value as any)
                                 : (t as any).params?.value,
+                            onchainCondition: oc
+                                ? { ...oc, condition: mappedCondition }
+                                : oc,
                         },
                     };
                 }

@@ -1,4 +1,4 @@
-import { Workflow as IWorkflow, Job as IJob, Trigger } from './types';
+import { Workflow as IWorkflow, Job as IJob, Trigger, OnchainConditionOperator } from './types';
 import { Job } from './Job';
 import { Account, AbiFunction, parseAbiItem } from 'viem';
 import { Step } from './Step';
@@ -137,15 +137,55 @@ export class Workflow implements IWorkflow {
 
     this.triggers = this.triggers.map(t => {
       if ((t as any).type === 'onchain' && (t as any).params?.abi) {
-        const types = getInputTypes((t as any).params.abi);
-        const args = Array.isArray((t as any).params?.args)
-          ? (t as any).params.args.map((arg: any, i: number) => coerce(arg, types[i] ?? ''))
-          : (t as any).params?.args;
+        const params: any = (t as any).params || {};
+        const types = getInputTypes(params.abi);
+        const args = Array.isArray(params.args)
+          ? params.args.map((arg: any, i: number) => coerce(arg, types[i] ?? ''))
+          : params.args;
+
+        let onchainCondition = params.onchainCondition;
+        if (onchainCondition) {
+          let returnType = 'bool';
+          try {
+            const fn = parseAbiItem(`function ${params.abi}`) as AbiFunction;
+            if (fn.outputs && fn.outputs.length > 0) {
+              returnType = fn.outputs[0].type;
+            }
+          } catch { }
+
+          const condOp = onchainCondition.condition as OnchainConditionOperator;
+          const rawVal = onchainCondition.value;
+          let newVal: any = rawVal;
+          if (condOp === OnchainConditionOperator.ONE_OF) {
+            if (typeof rawVal === 'string') {
+              try {
+                const parsed = JSON.parse(rawVal);
+                if (Array.isArray(parsed)) {
+                  newVal = parsed.map((v: any) => (typeof v === 'string' ? coerce(v, returnType) : v));
+                } else {
+                  newVal = [coerce(rawVal, returnType)];
+                }
+              } catch {
+                const parts = rawVal.split(',').map((s: string) => s.trim()).filter(Boolean);
+                newVal = parts.map(p => coerce(p, returnType));
+              }
+            } else if (Array.isArray(rawVal)) {
+              newVal = rawVal.map(v => (typeof v === 'string' ? coerce(v, returnType) : v));
+            }
+          } else {
+            if (typeof rawVal === 'string') {
+              newVal = coerce(rawVal, returnType);
+            }
+          }
+          onchainCondition = { ...onchainCondition, value: newVal };
+        }
+
         return {
           ...t,
           params: {
-            ...(t as any).params,
+            ...params,
             args,
+            onchainCondition,
           },
         } as Trigger;
       }

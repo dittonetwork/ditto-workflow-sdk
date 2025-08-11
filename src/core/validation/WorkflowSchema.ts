@@ -44,6 +44,13 @@ const TriggerSchema = z.discriminatedUnion('type', [
             args: z.array(z.any()).readonly(),
             value: z.string().optional(),
             chainId: z.number().positive(),
+            onchainCondition: z.object({
+                condition: z.union([
+                    z.string(), // serialized as string for readability
+                    z.number(), // backward compatibility
+                ]),
+                value: z.any(),
+            }).optional(),
         }),
     }),
 ]);
