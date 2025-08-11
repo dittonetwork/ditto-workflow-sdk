@@ -30,29 +30,24 @@ async function createAndSubmitWorkflow(
   storage: IpfsStorage
 ) {
   const workflow = WorkflowBuilder.create(addressToEmptyAccount(ownerAccount.address!))
-    .addOnchainTrigger({
-      target: "0x23D20B93a238Da60486b80E03aFCF4B8aa3c7af6",
-      abi: 'returnUint(uint256 value)',
-      args: [12],
-      chainId: ChainId.SEPOLIA,
-    })
-    .addCronTrigger("*/5 * * * *")
+    .addCronTrigger("* * * * *")
     .setCount(3)
-    .setValidAfter(1754674980 * 1000)
-    .setValidUntil(1754834940 * 1000)
+    .setValidAfter(Date.now() - 1000 * 60 * 60 * 24 * 30)
+    .setValidUntil(Date.now() + 1000 * 60 * 60 * 24 * 30)
     .addJob(
       JobBuilder.create("job-1754655494259")
         .setChainId(sepolia.id)
         .addStep({
-          target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
-          abi: "returnBool(bool value)",
-          args: [false],
-          value: BigInt(0)
+          target: "0xA77c5C0D16FB00bB9cbfCe13B4C7802E265d3f62",
+          abi: "",
+          args: [],
+          value: BigInt(50000000000000000)
         })
         .build()
     )
     .build();
 
+  console.log(Date.now() + 1000 * 60 * 60 * 24 * 30);
   const response = await submitWorkflow(
     workflow,
     executorAccountAddress,
@@ -61,6 +56,7 @@ async function createAndSubmitWorkflow(
     false,
     process.env.ZERODEV_API_KEY as string,
   );
+  // console.log("response", response);
 
   return response;
 }
@@ -76,7 +72,7 @@ async function simulateWorkflow(
     executorAccount,
     false,
     process.env.ZERODEV_API_KEY as string,
-    false,
+    true,
     false
   );
 
@@ -95,13 +91,13 @@ async function completeWorkflowExample() {
   //ipfs storage
   const storage = new IpfsStorage(IPFS_SERVICE_URL);
 
-  const response = await createAndSubmitWorkflow(ownerAccount, executorAddress, storage);
+  // const response = await createAndSubmitWorkflow(ownerAccount, executorAddress, storage);
 
-  logger.info("Workflow uploaded", response.ipfsHash);
+  // logger.info("Workflow uploaded", response.ipfsHash);
 
   logger.info("Simulating workflow");
   const simulateResult = await simulateWorkflow(
-    response.ipfsHash,
+    "QmTo2tR6cLSTBUriVVBGNHW6EzafSjjnqgrVyonDidk5TA",
     storage,
     executorAccount,
   );
