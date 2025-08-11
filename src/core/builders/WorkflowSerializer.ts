@@ -112,7 +112,7 @@ export async function deserialize(
     const validatedData = validationResult.data;
 
     try {
-        return new Workflow({
+        const workflow = new Workflow({
             owner: addressToEmptyAccount(validatedData.workflow.owner as `0x${string}`),
             triggers: validatedData.workflow.triggers.map((t): any => {
                 if (t.type === 'onchain') {
@@ -120,9 +120,7 @@ export async function deserialize(
                         ...t,
                         params: {
                             ...t.params,
-                            args: Array.isArray((t as any).params?.args)
-                                ? coerceArgsByAbi((t as any).params.abi, (t as any).params.args)
-                                : (t as any).params?.args,
+                            args: (t as any).params?.args,
                             value: (t as any).params?.value !== undefined && (t as any).params?.value !== null
                                 ? BigInt((t as any).params.value as any)
                                 : (t as any).params?.value,
@@ -137,7 +135,7 @@ export async function deserialize(
                 steps: job.steps.map((step): IStep => ({
                     target: step.target,
                     abi: step.abi,
-                    args: Array.isArray(step.args) ? coerceArgsByAbi(step.abi, step.args as any[]) : step.args,
+                    args: step.args,
                     value: step.value ? BigInt(step.value) : undefined,
                 })),
                 session: job.session,
@@ -147,6 +145,8 @@ export async function deserialize(
             validUntil: validatedData.workflow.validUntil ? new Date(validatedData.workflow.validUntil * 1000) : undefined,
             interval: validatedData.workflow.interval,
         });
+        workflow.typify();
+        return workflow;
     } catch (error) {
         if (error instanceof Error && error.message.includes('Cannot convert')) {
             throw new WorkflowError(

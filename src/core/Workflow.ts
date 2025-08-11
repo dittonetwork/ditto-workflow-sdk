@@ -1,6 +1,7 @@
 import { Workflow as IWorkflow, Job as IJob, Trigger } from './types';
 import { Job } from './Job';
-import { Account } from 'viem';
+import { Account, AbiFunction, parseAbiItem } from 'viem';
+import { Step } from './Step';
 
 export class Workflow implements IWorkflow {
   public validAfter?: Date;
@@ -96,5 +97,77 @@ export class Workflow implements IWorkflow {
 
   getOwner(): Account {
     return this.owner;
+  }
+
+  typify(): this {
+    const coerce = (val: any, type: string) => {
+      if (typeof val !== 'string') return val;
+      const t = type.toLowerCase();
+      if (t === 'bool') {
+        const v = val.trim().toLowerCase();
+        if (v === 'true') return true;
+        if (v === 'false') return false;
+        return Boolean(v);
+      }
+      if (t.startsWith('uint') || t.startsWith('int')) {
+        return BigInt(val);
+      }
+      if (t === 'string' || t === 'address' || t.startsWith('bytes')) {
+        return val;
+      }
+      if (t.endsWith('[]')) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) return parsed;
+        } catch { }
+        return val;
+      }
+      return val;
+    };
+
+    const getInputTypes = (abiSig: string): string[] => {
+      if (!abiSig || abiSig.trim().length === 0) return [];
+      try {
+        const fn = parseAbiItem(`function ${abiSig}`) as AbiFunction;
+        return fn.inputs.map(i => i.type);
+      } catch {
+        return [];
+      }
+    };
+
+    this.triggers = this.triggers.map(t => {
+      if ((t as any).type === 'onchain' && (t as any).params?.abi) {
+        const types = getInputTypes((t as any).params.abi);
+        const args = Array.isArray((t as any).params?.args)
+          ? (t as any).params.args.map((arg: any, i: number) => coerce(arg, types[i] ?? ''))
+          : (t as any).params?.args;
+        return {
+          ...t,
+          params: {
+            ...(t as any).params,
+            args,
+          },
+        } as Trigger;
+      }
+      return t;
+    });
+
+    for (const job of this.jobs) {
+      for (let i = 0; i < job.steps.length; i++) {
+        const step = job.steps[i] as Step;
+        const types = getInputTypes(step.abi);
+        const newArgs = Array.isArray(step.args)
+          ? step.args.map((arg, idx) => coerce(arg, types[idx] ?? ''))
+          : step.args;
+        job.steps[i] = new Step({
+          target: step.target as any,
+          abi: step.abi,
+          args: newArgs as any[],
+          value: step.value,
+        });
+      }
+    }
+
+    return this;
   }
 }
