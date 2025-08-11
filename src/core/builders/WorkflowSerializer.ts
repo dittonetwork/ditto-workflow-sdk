@@ -73,7 +73,42 @@ export async function serialize(
     return {
         workflow: {
             owner: workflow.owner.address,
-            triggers: workflow.triggers.map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t)),
+            triggers: workflow.triggers.map((t: any) => {
+                if (t.type === 'onchain') {
+                    return {
+                        type: 'onchain',
+                        params: {
+                            target: t.params.target,
+                            abi: t.params.abi,
+                            args: Array.isArray(t.params.args) ? t.params.args.map((a: any) => a != null ? a.toString() : '') : [],
+                            value: (t.params.value ?? BigInt(0)).toString(),
+                            chainId: t.params.chainId,
+                            onchainCondition: t.params.onchainCondition
+                                ? {
+                                    condition: String(t.params.onchainCondition.condition),
+                                    value: t.params.onchainCondition.value != null ? String(t.params.onchainCondition.value) : ''
+                                }
+                                : undefined,
+                        },
+                    } as any;
+                }
+                if (t.type === 'event') {
+                    const filterObj = Object.fromEntries(
+                        Object.entries(t.params.filter || {}).map(([k, v]: [string, any]) => [k, v != null ? String(v) : ''])
+                    );
+                    return {
+                        type: 'event',
+                        params: {
+                            signature: t.params.signature,
+                            contractAddress: t.params.contractAddress,
+                            chainId: t.params.chainId,
+                            filter: filterObj,
+                        },
+                    } as any;
+                }
+                // cron
+                return t as any;
+            }),
             jobs: await Promise.all(workflow.jobs.map(async job => ({
                 id: job.id,
                 chainId: job.chainId,
@@ -129,7 +164,18 @@ export async function deserialize(
                         },
                     };
                 }
-                return t as any;
+                if (t.type === 'event') {
+                    return {
+                        ...t,
+                        params: {
+                            ...t.params,
+                            filter: Object.fromEntries(
+                                Object.entries((t as any).params?.filter || {}).map(([k, v]: [string, any]) => [k, v])
+                            ),
+                        },
+                    };
+                }
+                return t as any; // cron
             }),
             jobs: validatedData.workflow.jobs.map((job): IJob => ({
                 id: job.id,

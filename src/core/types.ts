@@ -64,19 +64,12 @@ export type Trigger = EventTrigger | CronTrigger | OnchainTrigger;
 
 export interface EventTrigger {
   type: 'event';
-  params: {
-    signature: string;
-    contractAddress: Address;
-    chainId: number;
-    filter?: Record<string, any>;
-  };
+  params: EventTriggerParams;
 }
 
 export interface CronTrigger {
   type: 'cron';
-  params: {
-    schedule: string;
-  };
+  params: CronTriggerParams;
 }
 
 export interface OnchainCondition {
@@ -86,14 +79,7 @@ export interface OnchainCondition {
 
 export interface OnchainTrigger {
   type: 'onchain';
-  params: {
-    target: Address;
-    abi: string;
-    args: readonly any[];
-    value?: bigint;
-    chainId: number;
-    onchainCondition?: OnchainCondition;
-  };
+  params: OnchainTriggerParams;
 }
 
 export interface EventTriggerParams {
