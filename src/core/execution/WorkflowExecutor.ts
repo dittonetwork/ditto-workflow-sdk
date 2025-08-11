@@ -22,7 +22,8 @@ export async function execute(
     workflow: Workflow,
     executorAccount: Signer,
     ipfsHash: string,
-    nonce: bigint,
+    prodContract: boolean,
+    zerodevApiKey: string,
     simulate: boolean = false,
     usePaymaster: boolean = false,
     logger: Logger = getDefaultLogger()
@@ -40,9 +41,10 @@ export async function execute(
                     job,
                     executorAccount,
                     ipfsHash,
-                    nonce,
+                    prodContract,
+                    zerodevApiKey,
                     simulate,
-                    usePaymaster
+                    usePaymaster,
                 );
 
                 logger.info(`✅ Session ${i + 1} executed:`, result);
@@ -73,15 +75,16 @@ export async function executeJob(
     job: Job,
     executorAccount: Signer,
     ipfsHash: string,
-    nonce: bigint,
+    prodContract: boolean,
+    zerodevApiKey: string,
     simulate: boolean = false,
-    usePaymaster: boolean = false
+    usePaymaster: boolean = false,
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
     userOp?: UserOperation
 }> {
-    const chainConfig = getChainConfig();
+    const chainConfig = getChainConfig(zerodevApiKey);
     const chain = chainConfig[job.chainId]?.chain;
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
     if (!chain) {
@@ -122,7 +125,7 @@ export async function executeJob(
         data: step.getCalldata() as `0x${string}`,
     }));
     calls.push({
-        to: getDittoWFRegistryAddress(),
+        to: getDittoWFRegistryAddress(prodContract),
         value: BigInt(0),
         data: encodeFunctionData({
             abi: DittoWFRegistryAbi,
@@ -163,7 +166,8 @@ export async function executeFromIpfs(
     ipfsHash: string,
     storage: IWorkflowStorage,
     executorAccount: Signer,
-    nonce: bigint,
+    prodContract: boolean,
+    zerodevApiKey: string,
     simulate: boolean = false,
     usePaymaster: boolean = false
 ): Promise<{
@@ -173,11 +177,11 @@ export async function executeFromIpfs(
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
-    const validation = await WorkflowValidator.validate(workflow, executorAccount, { checkSessions: true });
-    if (validation.status !== ValidatorStatus.Success) {
-        throw new Error(validatorStatusMessage(validation.status));
-    }
-    const results = await execute(workflow, executorAccount, ipfsHash, nonce, simulate, usePaymaster);
+    // const validation = await WorkflowValidator.validate(workflow, executorAccount, zerodevApiKey, { checkSessions: true });
+    // if (validation.status !== ValidatorStatus.Success) {
+    //     throw new Error(validatorStatusMessage(validation.status));
+    // }
+    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, zerodevApiKey, simulate, usePaymaster);
 
     return {
         success: results.success,

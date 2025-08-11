@@ -4,13 +4,12 @@ import {
   ChainId,
   executeFromIpfs,
   submitWorkflow,
-  OnchainConditionOperator,
 } from '../src';
 import { privateKeyToAccount } from 'viem/accounts';
 import { Hex } from 'viem';
 import * as dotenv from 'dotenv';
 import { IpfsStorage } from '../src/storage/IpfsStorage';
-import { baseSepolia, sepolia } from 'viem/chains';
+import { sepolia } from 'viem/chains';
 import { Signer } from '@zerodev/sdk/types';
 import { addressToEmptyAccount } from '@zerodev/sdk';
 import { PinoLogger } from '../src';
@@ -31,36 +30,23 @@ async function createAndSubmitWorkflow(
   storage: IpfsStorage
 ) {
   const workflow = WorkflowBuilder.create(addressToEmptyAccount(ownerAccount.address!))
-    // .addEventTrigger({
-    //   signature: "Transfer(address indexed from, address indexed to, uint256 value)",
-    //   contractAddress: "0x34bE7f35132E97915633BC1fc020364EA5134863" as `0x${string}`,
-    //   chainId: ChainId.SEPOLIA,
-    //   filter: {
-    //     from: "0x0000000000000000000000000000000000000000", // Mint events
-    //     to: ownerAccount.address // Mint to owner
-    //   }
-    // })
     .addOnchainTrigger({
       target: "0x23D20B93a238Da60486b80E03aFCF4B8aa3c7af6",
-      abi: 'returnInt(int256) returns (int256)',
-      args: [100],
+      abi: 'returnUint(uint256 value)',
+      args: [12],
       chainId: ChainId.SEPOLIA,
-      onchainCondition: {
-        condition: OnchainConditionOperator.GREATER_THAN,
-        value: 99
-      }
     })
-    .addCronTrigger("*/10 * * * * *")
-    .setCount(5)
-    .setValidAfter(Date.now() - 2 * 60 * 60 * 1000)
-    .setValidUntil(Date.now() + 10000 * 60 * 60 * 1000)
+    .addCronTrigger("*/5 * * * *")
+    .setCount(3)
+    .setValidAfter(1754674980 * 1000)
+    .setValidUntil(1754834940 * 1000)
     .addJob(
-      JobBuilder.create("mint-nft-job-sepolia")
+      JobBuilder.create("job-1754655494259")
         .setChainId(sepolia.id)
         .addStep({
-          target: "0x34bE7f35132E97915633BC1fc020364EA5134863",
-          abi: "mint(address)",
-          args: [ownerAccount.address],
+          target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
+          abi: "returnBool(bool value)",
+          args: [false],
           value: BigInt(0)
         })
         .build()
@@ -71,7 +57,9 @@ async function createAndSubmitWorkflow(
     workflow,
     executorAccountAddress,
     storage,
-    ownerAccount
+    ownerAccount,
+    false,
+    process.env.ZERODEV_API_KEY as string,
   );
 
   return response;
@@ -86,8 +74,9 @@ async function simulateWorkflow(
     ipfsHash,
     storage,
     executorAccount,
-    BigInt(0),
-    true,
+    false,
+    process.env.ZERODEV_API_KEY as string,
+    false,
     false
   );
 
