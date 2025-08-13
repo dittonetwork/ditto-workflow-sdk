@@ -25,7 +25,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
         valueLimit: step.value ?? BigInt(0),
         abi: step.getAbi(),
         functionName: step.getFunctionName(),
-        args: step.args.map(arg => arg === null ? null : ({
+        args: step.args.map(arg => arg === null || typeof arg === 'string' ? null : ({
             condition: ParamCondition.EQUAL,
             value: arg,
         })),
