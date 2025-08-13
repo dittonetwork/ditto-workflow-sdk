@@ -14,7 +14,8 @@ export async function submitWorkflow(
     owner: Signer,
     prodContract: boolean,
     zerodevApiKey: string,
-    usePaymaster: boolean = false
+    usePaymaster: boolean = false,
+    switchChain?: (chainId: number) => Promise<void>
 ): Promise<{
     ipfsHash: string;
     userOpHashes: UserOperationReceipt[];
@@ -27,9 +28,14 @@ export async function submitWorkflow(
     const ipfsHash = await storage.upload(serializedData);
 
     const workflowContract = new WorkflowContract(getDittoWFRegistryAddress(prodContract));
-    const userOpHashes = await Promise.all(
-        workflow.jobs.map(job => workflowContract.createWorkflow(ipfsHash, owner, job.chainId, zerodevApiKey, usePaymaster))
-    );
+    const userOpHashes: UserOperationReceipt[] = [];
+    for (const job of workflow.jobs) {
+        if (switchChain) {
+            await switchChain(job.chainId);
+        }
+        const receipt = await workflowContract.createWorkflow(ipfsHash, owner, job.chainId, zerodevApiKey, usePaymaster);
+        userOpHashes.push(receipt);
+    }
 
     return {
         ipfsHash,
