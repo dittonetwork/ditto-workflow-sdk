@@ -95,7 +95,8 @@ export async function serialize(
     executorAddress: Address,
     owner: Signer,
     prodContract: boolean,
-    zerodevApiKey: string
+    zerodevApiKey: string,
+    switchChain?: (chainId: number) => Promise<void>
 ): Promise<SerializedWorkflowData> {
     return {
         workflow: {
@@ -119,17 +120,22 @@ export async function serialize(
                     }
                     return t;
                 }),
-            jobs: await Promise.all(workflow.jobs.map(async job => ({
-                id: job.id,
-                chainId: job.chainId,
-                steps: job.steps.map(step => ({
-                    target: step.target,
-                    abi: step.abi,
-                    args: step.args.map(arg => arg.toString()),
-                    value: (step.value || BigInt(0)).toString(),
-                })),
-                session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
-            }))),
+            jobs: await Promise.all(workflow.jobs.map(async job => {
+                if (switchChain) {
+                    await switchChain(job.chainId);
+                }
+                return {
+                    id: job.id,
+                    chainId: job.chainId,
+                    steps: job.steps.map(step => ({
+                        target: step.target,
+                        abi: step.abi,
+                        args: step.args.map(arg => arg.toString()),
+                        value: (step.value || BigInt(0)).toString(),
+                    })),
+                    session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
+                };
+            })),
             count: workflow.count,
             validAfter: workflow.validAfter instanceof Date ? Math.floor(workflow.validAfter.getTime() / 1000) : workflow.validAfter,
             validUntil: workflow.validUntil instanceof Date ? Math.floor(workflow.validUntil.getTime() / 1000) : workflow.validUntil,

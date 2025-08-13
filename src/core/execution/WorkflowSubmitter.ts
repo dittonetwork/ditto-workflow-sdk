@@ -20,7 +20,7 @@ export async function submitWorkflow(
     ipfsHash: string;
     userOpHashes: UserOperationReceipt[];
 }> {
-    const serializedData = await serialize(workflow, executorAddress, owner, prodContract, zerodevApiKey);
+    const serializedData = await serialize(workflow, executorAddress, owner, prodContract, zerodevApiKey, switchChain);
     // const validation = await WorkflowValidator.validate(workflow, owner, zerodevApiKey);
     // if (validation.status !== ValidatorStatus.Success) {
     //     throw new Error(validatorStatusMessage(validation.status));
