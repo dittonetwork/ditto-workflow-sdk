@@ -98,6 +98,24 @@ export async function serialize(
     zerodevApiKey: string,
     switchChain?: (chainId: number) => Promise<void>
 ): Promise<SerializedWorkflowData> {
+    const jobs: any[] = [];
+    for (const job of workflow.jobs) {
+        if (switchChain) {
+            await switchChain(job.chainId);
+        }
+        const session = await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey);
+        jobs.push({
+            id: job.id,
+            chainId: job.chainId,
+            steps: job.steps.map(step => ({
+                target: step.target,
+                abi: step.abi,
+                args: step.args.map(arg => arg.toString()),
+                value: (step.value || BigInt(0)).toString(),
+            })),
+            session: session,
+        });
+    }
     return {
         workflow: {
             owner: workflow.owner.address,
@@ -120,22 +138,7 @@ export async function serialize(
                     }
                     return t;
                 }),
-            jobs: await Promise.all(workflow.jobs.map(async job => {
-                if (switchChain) {
-                    await switchChain(job.chainId);
-                }
-                return {
-                    id: job.id,
-                    chainId: job.chainId,
-                    steps: job.steps.map(step => ({
-                        target: step.target,
-                        abi: step.abi,
-                        args: step.args.map(arg => arg.toString()),
-                        value: (step.value || BigInt(0)).toString(),
-                    })),
-                    session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
-                };
-            })),
+            jobs: jobs,
             count: workflow.count,
             validAfter: workflow.validAfter instanceof Date ? Math.floor(workflow.validAfter.getTime() / 1000) : workflow.validAfter,
             validUntil: workflow.validUntil instanceof Date ? Math.floor(workflow.validUntil.getTime() / 1000) : workflow.validUntil,
