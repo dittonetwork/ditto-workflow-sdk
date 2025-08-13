@@ -6,7 +6,34 @@ import { Workflow } from '../Workflow';
 import { createSession } from './SessionService';
 import { SerializedWorkflowDataSchema } from '../validation/WorkflowSchema';
 import { WorkflowError, WorkflowErrorCode } from '../WorkflowError';
-import type { Step as IStep, Job as IJob } from '../types';
+import { OnchainConditionOperator, type Step as IStep, type Job as IJob } from '../types';
+
+function conditionEnumToString(cond: OnchainConditionOperator): string {
+    switch (cond) {
+        case OnchainConditionOperator.EQUAL: return 'EQUAL';
+        case OnchainConditionOperator.GREATER_THAN: return 'GREATER_THAN';
+        case OnchainConditionOperator.LESS_THAN: return 'LESS_THAN';
+        case OnchainConditionOperator.GREATER_THAN_OR_EQUAL: return 'GREATER_THAN_OR_EQUAL';
+        case OnchainConditionOperator.LESS_THAN_OR_EQUAL: return 'LESS_THAN_OR_EQUAL';
+        case OnchainConditionOperator.NOT_EQUAL: return 'NOT_EQUAL';
+        case OnchainConditionOperator.ONE_OF: return 'ONE_OF';
+        default: return String(cond);
+    }
+}
+
+function conditionStringToEnum(text: string): OnchainConditionOperator {
+    const upper = (text || '').toUpperCase();
+    switch (upper) {
+        case 'EQUAL': return OnchainConditionOperator.EQUAL;
+        case 'GREATER_THAN': return OnchainConditionOperator.GREATER_THAN;
+        case 'LESS_THAN': return OnchainConditionOperator.LESS_THAN;
+        case 'GREATER_THAN_OR_EQUAL': return OnchainConditionOperator.GREATER_THAN_OR_EQUAL;
+        case 'LESS_THAN_OR_EQUAL': return OnchainConditionOperator.LESS_THAN_OR_EQUAL;
+        case 'NOT_EQUAL': return OnchainConditionOperator.NOT_EQUAL;
+        case 'ONE_OF': return OnchainConditionOperator.ONE_OF;
+        default: return OnchainConditionOperator.EQUAL;
+    }
+}
 
 function extractInputTypesFromAbiSignature(signature: string): string[] {
     const match = signature.match(/^\s*[^\s(]+\s*\(([^)]*)\)/);
@@ -68,23 +95,50 @@ export async function serialize(
     executorAddress: Address,
     owner: Signer,
     prodContract: boolean,
-    zerodevApiKey: string
+    zerodevApiKey: string,
+    switchChain?: (chainId: number) => Promise<void>
 ): Promise<SerializedWorkflowData> {
+    const jobs: any[] = [];
+    for (const job of workflow.jobs) {
+        if (switchChain) {
+            await switchChain(job.chainId);
+        }
+        const session = await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey);
+        jobs.push({
+            id: job.id,
+            chainId: job.chainId,
+            steps: job.steps.map(step => ({
+                target: step.target,
+                abi: step.abi,
+                args: step.args.map(arg => arg.toString()),
+                value: (step.value || BigInt(0)).toString(),
+            })),
+            session: session,
+        });
+    }
     return {
         workflow: {
             owner: workflow.owner.address,
-            triggers: workflow.triggers.map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t)),
-            jobs: await Promise.all(workflow.jobs.map(async job => ({
-                id: job.id,
-                chainId: job.chainId,
-                steps: job.steps.map(step => ({
-                    target: step.target,
-                    abi: step.abi,
-                    args: step.args.map(arg => arg.toString()),
-                    value: (step.value || BigInt(0)).toString(),
-                })),
-                session: await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey),
-            }))),
+            triggers: workflow.triggers
+                .map(t => (typeof (t as any).toJSON === 'function' ? (t as any).toJSON() : t))
+                .map((t: any) => {
+                    if (t?.type === 'onchain' && t.params?.onchainCondition?.condition !== undefined) {
+                        const cond = t.params.onchainCondition.condition;
+                        const condStr = typeof cond === 'number' ? conditionEnumToString(cond) : String(cond);
+                        return {
+                            ...t,
+                            params: {
+                                ...t.params,
+                                onchainCondition: {
+                                    ...t.params.onchainCondition,
+                                    condition: condStr,
+                                },
+                            },
+                        };
+                    }
+                    return t;
+                }),
+            jobs: jobs,
             count: workflow.count,
             validAfter: workflow.validAfter instanceof Date ? Math.floor(workflow.validAfter.getTime() / 1000) : workflow.validAfter,
             validUntil: workflow.validUntil instanceof Date ? Math.floor(workflow.validUntil.getTime() / 1000) : workflow.validUntil,
@@ -112,20 +166,25 @@ export async function deserialize(
     const validatedData = validationResult.data;
 
     try {
-        return new Workflow({
+        const workflow = new Workflow({
             owner: addressToEmptyAccount(validatedData.workflow.owner as `0x${string}`),
             triggers: validatedData.workflow.triggers.map((t): any => {
                 if (t.type === 'onchain') {
+                    const oc = (t as any).params?.onchainCondition;
+                    const mappedCondition = oc && typeof oc.condition === 'string'
+                        ? conditionStringToEnum(oc.condition)
+                        : oc?.condition;
                     return {
                         ...t,
                         params: {
                             ...t.params,
-                            args: Array.isArray((t as any).params?.args)
-                                ? coerceArgsByAbi((t as any).params.abi, (t as any).params.args)
-                                : (t as any).params?.args,
+                            args: (t as any).params?.args,
                             value: (t as any).params?.value !== undefined && (t as any).params?.value !== null
                                 ? BigInt((t as any).params.value as any)
                                 : (t as any).params?.value,
+                            onchainCondition: oc
+                                ? { ...oc, condition: mappedCondition }
+                                : oc,
                         },
                     };
                 }
@@ -137,7 +196,7 @@ export async function deserialize(
                 steps: job.steps.map((step): IStep => ({
                     target: step.target,
                     abi: step.abi,
-                    args: Array.isArray(step.args) ? coerceArgsByAbi(step.abi, step.args as any[]) : step.args,
+                    args: step.args,
                     value: step.value ? BigInt(step.value) : undefined,
                 })),
                 session: job.session,
@@ -147,6 +206,8 @@ export async function deserialize(
             validUntil: validatedData.workflow.validUntil ? new Date(validatedData.workflow.validUntil * 1000) : undefined,
             interval: validatedData.workflow.interval,
         });
+        workflow.typify();
+        return workflow;
     } catch (error) {
         if (error instanceof Error && error.message.includes('Cannot convert')) {
             throw new WorkflowError(
