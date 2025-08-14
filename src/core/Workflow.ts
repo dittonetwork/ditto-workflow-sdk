@@ -153,7 +153,24 @@ export class Workflow implements IWorkflow {
             }
           } catch { }
 
-          const condOp = onchainCondition.condition as OnchainConditionOperator;
+          let condOp = onchainCondition.condition;
+          if (typeof condOp === 'string') {
+            if (condOp === 'EQUAL') {
+              condOp = OnchainConditionOperator.EQUAL;
+            } else if (condOp === 'NOT_EQUAL') {
+              condOp = OnchainConditionOperator.NOT_EQUAL;
+            } else if (condOp === 'GREATER_THAN') {
+              condOp = OnchainConditionOperator.GREATER_THAN;
+            } else if (condOp === 'LESS_THAN') {
+              condOp = OnchainConditionOperator.LESS_THAN;
+            } else if (condOp === 'GREATER_THAN_OR_EQUAL') {
+              condOp = OnchainConditionOperator.GREATER_THAN_OR_EQUAL;
+            } else if (condOp === 'LESS_THAN_OR_EQUAL') {
+              condOp = OnchainConditionOperator.LESS_THAN_OR_EQUAL;
+            } else if (condOp === 'ONE_OF') {
+              condOp = OnchainConditionOperator.ONE_OF;
+            }
+          }
           const rawVal = onchainCondition.value;
           let newVal: any = rawVal;
           if (condOp === OnchainConditionOperator.ONE_OF) {
