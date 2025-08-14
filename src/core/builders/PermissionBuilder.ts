@@ -20,16 +20,30 @@ interface Permission {
 }
 
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
-    const permissions: Permission[] = job.steps.map(step => ({
-        target: step.target as `0x${string}`,
-        valueLimit: step.value ?? BigInt(0),
-        abi: step.getAbi(),
-        functionName: step.getFunctionName(),
-        args: step.args.map(arg => arg === null ? null : ({
-            condition: ParamCondition.EQUAL,
-            value: arg,
-        })),
-    }));
+    const permissions: Permission[] = job.steps.map(step => {
+        const abiFunctions = step.getAbi();
+        const abiFunction = abiFunctions[0];
+        return {
+            target: step.target as `0x${string}`,
+            valueLimit: step.value ?? BigInt(0),
+            abi: abiFunctions,
+            functionName: step.getFunctionName(),
+            args: step.args.map((arg, index) => {
+                if (arg === null) {
+                    return null;
+                }
+                const paramType = abiFunction?.inputs?.[index]?.type;
+                const isStringType = typeof paramType === 'string' && paramType.startsWith('string');
+                if (isStringType) {
+                    return null;
+                }
+                return {
+                    condition: ParamCondition.EQUAL,
+                    value: arg,
+                };
+            }),
+        };
+    });
     permissions.push({
         target: getDittoWFRegistryAddress(prodContract),
         valueLimit: BigInt(0),
