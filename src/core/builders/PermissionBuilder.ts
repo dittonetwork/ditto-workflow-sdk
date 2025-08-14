@@ -20,6 +20,7 @@ interface Permission {
 }
 
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
+
     const permissions: Permission[] = job.steps.map(step => {
         const abiFunctions = step.getAbi();
         const abiFunction = abiFunctions[0];
@@ -44,6 +45,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
             }),
         };
     });
+
     permissions.push({
         target: getDittoWFRegistryAddress(prodContract),
         valueLimit: BigInt(0),
