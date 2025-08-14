@@ -171,6 +171,7 @@ export class Workflow implements IWorkflow {
               condOp = OnchainConditionOperator.ONE_OF;
             }
           }
+          onchainCondition.condition = condOp;
           const rawVal = onchainCondition.value;
           let newVal: any = rawVal;
           if (condOp === OnchainConditionOperator.ONE_OF) {
