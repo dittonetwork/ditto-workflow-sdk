@@ -119,6 +119,113 @@ All triggers attached to a workflow are evaluated by the off-chain executor befo
 
 All triggers in the `triggers` array are combined with logical **AND**. If the array is empty the workflow is considered always eligible for execution.
 
+### Detailed trigger specification
+
+#### CronTrigger
+- **Purpose**: Satisfied when the current UTC time matches a standard CRON expression.
+- **Shape**:
+  - `type: 'cron'`
+  - `params.schedule: string` (CRON in UTC)
+- **Validation**: `schedule` must be non-empty.
+- **Examples**:
+  - Every minute:
+    ```typescript
+    WorkflowBuilder.create(owner).addCronTrigger('* * * * *')
+    ```
+  - Every 5 minutes:
+    ```typescript
+    WorkflowBuilder.create(owner).addCronTrigger('*/5 * * * *')
+    ```
+  - Midnight UTC daily:
+    ```typescript
+    WorkflowBuilder.create(owner).addCronTrigger('0 0 * * *')
+    ```
+
+#### EventTrigger
+- **Purpose**: Satisfied when a matching event is observed on the specified `chainId`.
+- **Shape**:
+  - `type: 'event'`
+  - `params.chainId: number`
+  - `params.contractAddress: Address`
+  - `params.signature: string` (e.g. `Transfer(address,address,uint256)`)
+  - `params.filter?: Record<string, any>` (indexed arg filters)
+- **Executor behavior**: Stores the last matched block number to prevent double execution.
+- **Validation**: Non-empty `signature`, valid `contractAddress`, positive `chainId`.
+- **Examples**:
+  - Any `Transfer` on Sepolia:
+    ```typescript
+    .addEventTrigger({
+      chainId: ChainId.SEPOLIA,
+      contractAddress: '0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEAD0000',
+      signature: 'Transfer(address,address,uint256)',
+    })
+    ```
+  - Filter by indexed `from`:
+    ```typescript
+    .addEventTrigger({
+      chainId: ChainId.SEPOLIA,
+      contractAddress: '0xTokenAddress...',
+      signature: 'Transfer(address,address,uint256)',
+      filter: { from: '0x1111111111111111111111111111111111111111' },
+    })
+    ```
+
+#### OnchainTrigger
+- **Purpose**: Performs a read-only call and compares return value with `onchainCondition.value` using `condition`.
+- **Shape**:
+  - `type: 'onchain'`
+  - `params.chainId: number`
+  - `params.target: Address`
+  - `params.abi: string` (function signature; if `returns` omitted, a single `bool` is assumed)
+  - `params.args: readonly any[]`
+  - `params.value?: bigint` (ETH value to send; usually `0n`)
+  - `params.onchainCondition?: { condition: OnchainConditionOperator; value: any }`
+- **Operators** (`OnchainConditionOperator`): `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL`, `LESS_THAN`, `LESS_THAN_OR_EQUAL`, `ONE_OF`.
+- **Return types**: Supported `bool`, numeric (`uint*/int*`), `address`, fixed-length `bytesN`, `string`. Only the first return value is used.
+- **Type rules**: Arithmetic comparisons (>, ≥, <, ≤) require numeric return types; equality works for all supported primitives; `ONE_OF` expects membership in an array.
+- **Validation**: Non-empty `target` and `abi`. When `onchainCondition` is present, numeric operators require numeric return types.
+- **Examples**:
+  - Balance greater than zero:
+    ```typescript
+    .addOnchainTrigger({
+      chainId: ChainId.BASE_SEPOLIA,
+      target: '0xfeedBEEFfeedbeEFfEEdbeEfFeEdbEEFFeed0000',
+      abi: 'balanceOf(address) view returns (uint256)',
+      args: [owner.address],
+      onchainCondition: { condition: OnchainConditionOperator.GREATER_THAN, value: 0n },
+    })
+    ```
+  - Boolean getter with implicit `returns (bool)`:
+    ```typescript
+    .addOnchainTrigger({
+      chainId: ChainId.SEPOLIA,
+      target: '0xPaUsEd000000000000000000000000000000000000',
+      abi: 'isPaused()',
+      args: [],
+      onchainCondition: { condition: OnchainConditionOperator.EQUAL, value: false },
+    })
+    ```
+  - Upper bound on totalSupply:
+    ```typescript
+    .addOnchainTrigger({
+      chainId: ChainId.BASE_SEPOLIA,
+      target: '0xdeadBEEFdeadbeEFDEAdBeeFdEadbeEFDead0001',
+      abi: 'totalSupply() view returns (uint256)',
+      args: [],
+      onchainCondition: { condition: OnchainConditionOperator.LESS_THAN_OR_EQUAL, value: 1_000_000n },
+    })
+    ```
+  - Symbol must be one of:
+    ```typescript
+    .addOnchainTrigger({
+      chainId: ChainId.SEPOLIA,
+      target: '0x1111111111111111111111111111111111111111',
+      abi: 'symbol() view returns (string)',
+      args: [],
+      onchainCondition: { condition: OnchainConditionOperator.ONE_OF, value: ['USDC', 'USDT', 'DAI'] },
+    })
+    ```
+
 ---
 
 ---
