@@ -31,6 +31,7 @@ export async function execute(
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string }>;
 }> {
+    workflow.typify();
     const results = await Promise.all(
         workflow.jobs.map(async (job, i) => {
             if (!job.session) {

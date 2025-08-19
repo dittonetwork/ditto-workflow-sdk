@@ -30,23 +30,41 @@ async function createAndSubmitWorkflow(
   storage: IpfsStorage
 ) {
   const workflow = WorkflowBuilder.create(addressToEmptyAccount(ownerAccount.address!))
-    .addOnchainTrigger({
-      target: "0x23D20B93a238Da60486b80E03aFCF4B8aa3c7af6",
-      abi: 'returnUint(uint256 value)',
-      args: [12],
-      chainId: ChainId.SEPOLIA,
-    })
-    .addCronTrigger("*/5 * * * *")
+    // .addOnchainTrigger({
+    //   target: "0x23D20B93a238Da60486b80E03aFCF4B8aa3c7af6",
+    //   abi: 'returnUint(uint256 value)',
+    //   args: [12],
+    //   chainId: ChainId.SEPOLIA,
+    // })
+    .addCronTrigger("* * * * *")
     .setCount(3)
-    .setValidAfter(1754674980 * 1000)
-    .setValidUntil(1754834940 * 1000)
+    .setValidAfter(Date.now() - 1000 * 60 * 60 * 24 * 30)
+    .setValidUntil(Date.now() + 1000 * 60 * 60 * 24 * 30)
     .addJob(
       JobBuilder.create("job-1754655494259")
         .setChainId(sepolia.id)
         .addStep({
+          target: "0xa77c5c0d16fb00bb9cbfce13b4c7802e265d3f62",
+          abi: "",
+          args: [],
+          value: BigInt(1000000000000)
+        })
+        .addStep({
+          target: "0xa77c5c0d16fb00bb9cbfce13b4c7802e265d3f62",
+          abi: "",
+          args: [],
+          value: BigInt(2000000000000)
+        })
+        .addStep({
           target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
           abi: "returnBool(bool value)",
           args: [false],
+          value: BigInt(0)
+        })
+        .addStep({
+          target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
+          abi: "returnBool(bool value)",
+          args: [true],
           value: BigInt(0)
         })
         .build()
