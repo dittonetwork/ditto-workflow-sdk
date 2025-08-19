@@ -44,6 +44,18 @@ async function createAndSubmitWorkflow(
       JobBuilder.create("job-1754655494259")
         .setChainId(sepolia.id)
         .addStep({
+          target: "0xa77c5c0d16fb00bb9cbfce13b4c7802e265d3f62",
+          abi: "",
+          args: [],
+          value: BigInt(1000000000000)
+        })
+        .addStep({
+          target: "0xa77c5c0d16fb00bb9cbfce13b4c7802e265d3f62",
+          abi: "",
+          args: [],
+          value: BigInt(2000000000000)
+        })
+        .addStep({
           target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
           abi: "returnBool(bool value)",
           args: [false],
