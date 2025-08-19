@@ -263,7 +263,8 @@ sequenceDiagram
 ### Installation
 
 ```bash
-npm install @ditto/workflow-sdk
+npm install
+npm run build
 ```
 
 ### Comprehensive example
