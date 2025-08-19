@@ -69,6 +69,7 @@ export async function execute(
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
                 return {
+                    chainId: job.chainId,
                     success: false,
                     error: error instanceof Error ? error.message : 'Unknown error',
                 };
