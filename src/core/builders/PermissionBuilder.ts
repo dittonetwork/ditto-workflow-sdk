@@ -105,16 +105,31 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
             functionName: reference.functionName,
             args: mergedArgs,
         });
+        console.log(reference.target);
+        console.log(mergedValueLimit);
+        console.log(reference.abi);
+        console.log(reference.functionName);
         for (const arg of mergedArgs) {
             if (arg === null) {
-                continue;
-            }
-            if (arg.condition === ParamCondition.ONE_OF) {
+                console.log("arg: null");
+            } else {
+                console.log("arg: not null");
+                console.log(arg.condition);
                 console.log(arg.value);
             }
         }
+        console.log("--------------------------------");
     }
-
+    // for (const permission of result) {
+    //     for (const arg of permission.args) {
+    //         if (arg === null) {
+    //             continue;
+    //         }
+    //     }
+    //     if (permission.args.length === 0) {
+    //         console.log(permission);
+    //     }
+    // }
     return result;
 }
 
