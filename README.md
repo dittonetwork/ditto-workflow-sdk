@@ -407,6 +407,6 @@ This example demonstrates:
 
 ```env
 ZERODEV_API_KEY=<api-key>
-IPFS_SERVICE_URL=https://api.ditto.network/ipfs
+IPFS_SERVICE_URL=https://ipfs-service.dittonetwork.io
 ```
 
