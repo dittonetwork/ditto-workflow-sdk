@@ -26,7 +26,8 @@ export async function execute(
     zerodevApiKey: string,
     simulate: boolean = false,
     usePaymaster: boolean = false,
-    logger: Logger = getDefaultLogger()
+    logger: Logger = getDefaultLogger(),
+    runsCount: number = 0
 ): Promise<{
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string }>;
@@ -46,6 +47,7 @@ export async function execute(
                     zerodevApiKey,
                     simulate,
                     usePaymaster,
+                    runsCount,
                 );
 
                 if (result.error) {
@@ -91,6 +93,7 @@ export async function executeJob(
     zerodevApiKey: string,
     simulate: boolean = false,
     usePaymaster: boolean = false,
+    runsCount: number = 0,
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
@@ -137,13 +140,14 @@ export async function executeJob(
         value: step.value ?? BigInt(0),
         data: step.getCalldata() as `0x${string}`,
     }));
+
     calls.push({
         to: getDittoWFRegistryAddress(prodContract),
         value: BigInt(0),
         data: encodeFunctionData({
             abi: DittoWFRegistryAbi,
-            functionName: "markRun",
-            args: [ipfsHash],
+            functionName: "markRunWithMetadata",
+            args: [ipfsHash, job.id, BigInt(runsCount + 1), true],
         }),
     });
 
@@ -189,7 +193,8 @@ export async function executeFromIpfs(
     prodContract: boolean,
     zerodevApiKey: string,
     simulate: boolean = false,
-    usePaymaster: boolean = false
+    usePaymaster: boolean = false,
+    runsCount: number = 0
 ): Promise<{
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string }>;
@@ -201,7 +206,7 @@ export async function executeFromIpfs(
     // if (validation.status !== ValidatorStatus.Success) {
     //     throw new Error(validatorStatusMessage(validation.status));
     // }
-    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, zerodevApiKey, simulate, usePaymaster);
+    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, zerodevApiKey, simulate, usePaymaster, getDefaultLogger(), runsCount);
 
     return {
         success: results.success,

@@ -147,6 +147,16 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
         ],
     });
 
+    permissions.push({
+        target: getDittoWFRegistryAddress(prodContract),
+        valueLimit: BigInt(0),
+        abi: DittoWFRegistryAbi,
+        functionName: "markRunWithMetadata",
+        args: [
+            null,
+        ],
+    });
+
     const dedupedPermissions = deduplicateAndMergePermissions(permissions);
 
     const policies = [
