@@ -29,7 +29,7 @@ export async function execute(
     logger: Logger = getDefaultLogger()
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
 }> {
     workflow.typify();
     const results = await Promise.all(
@@ -37,6 +37,7 @@ export async function execute(
             if (!job.session) {
                 throw new Error(`Job ${job.id} has no session`);
             }
+            const start = new Date().toISOString();
             try {
                 const result = await executeJob(
                     job,
@@ -50,28 +51,37 @@ export async function execute(
 
                 if (result.error) {
                     logger.error(`❌ Session ${i + 1} failed:`, result.error);
+                    const finish = new Date().toISOString();
                     return {
                         success: false,
                         error: result.error,
                         userOp: result.userOp,
                         chainId: job.chainId,
+                        start,
+                        finish,
                     };
                 }
 
                 logger.info(`✅ Session ${i + 1} executed:`, result);
+                const finish = new Date().toISOString();
                 return {
                     success: true,
                     result: result.result,
                     userOp: result.userOp,
                     chainId: job.chainId,
                     gas: result.gas,
+                    start,
+                    finish,
                 };
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
+                const finish = new Date().toISOString();
                 return {
                     chainId: job.chainId,
                     success: false,
                     error: error instanceof Error ? error.message : 'Unknown error',
+                    start,
+                    finish,
                 };
             }
         })
@@ -201,7 +211,7 @@ export async function executeFromIpfs(
     usePaymaster: boolean = false
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string }>;
+    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
     markRunHash?: Hex;
 }> {
     const data = await storage.download(ipfsHash);
