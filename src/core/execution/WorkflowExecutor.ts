@@ -155,6 +155,14 @@ export async function executeJob(
     try {
         if (simulate) {
             const estimation = await kernelClient.estimateUserOperationGas(userOperation);
+            const maxFeePerGas = userOperation.maxFeePerGas as bigint;
+            const totalGasUnits =
+                estimation.preVerificationGas +
+                estimation.verificationGasLimit +
+                estimation.callGasLimit +
+                (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
+                (estimation.paymasterPostOpGasLimit ?? BigInt(0));
+            const totalGasEstimate = totalGasUnits * maxFeePerGas;
             return {
                 gas: {
                     preVerificationGas: estimation.preVerificationGas,
@@ -162,6 +170,7 @@ export async function executeJob(
                     callGasLimit: estimation.callGasLimit,
                     paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
                     paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
+                    totalGasEstimate,
                 },
                 userOp: userOperation,
             };

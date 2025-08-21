@@ -156,4 +156,5 @@ export interface GasEstimate {
   callGasLimit: bigint;
   paymasterVerificationGasLimit?: bigint;
   paymasterPostOpGasLimit?: bigint;
+  totalGasEstimate: bigint;
 }
