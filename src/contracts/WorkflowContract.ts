@@ -82,4 +82,65 @@ export class WorkflowContract {
 
     return result;
   }
+
+  async cancelWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, zerodevApiKey: string, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
+    const chainConfig = getChainConfig(zerodevApiKey);
+    const chain = chainConfig[chainId]?.chain;
+    const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl),
+      chain: chain,
+    });
+
+    const entryPoint = getEntryPoint(entryPointVersion);
+
+    const ownerValidator = await signerToEcdsaValidator(publicClient, {
+      entryPoint,
+      signer: ownerAccount,
+      kernelVersion: KERNEL_V3_3,
+    });
+    const kernelAccount = await createKernelAccount(publicClient, {
+      plugins: {
+        sudo: ownerValidator,
+      },
+      entryPoint,
+      kernelVersion: KERNEL_V3_3,
+    });
+
+    const kernelPaymaster = createZeroDevPaymasterClient({
+      chain: chain,
+      transport: http(rpcUrl),
+    });
+
+    const kernelClient = createKernelAccountClient({
+      account: kernelAccount,
+      chain: chain,
+      bundlerTransport: http(rpcUrl),
+      paymaster: usePaymaster ? {
+        getPaymasterData(userOperation) {
+          return kernelPaymaster.sponsorUserOperation({ userOperation });
+        }
+      } : undefined,
+    });
+
+    const cancelWFCalldata = encodeFunctionData({
+      abi: DittoWFRegistryAbi,
+      functionName: "cancelWF",
+      args: [ipfsHash],
+    });
+
+    const userOpHash = await kernelClient.sendUserOperation({
+      callData: await kernelAccount.encodeCalls([
+        {
+          to: this.contractAddress,
+          value: BigInt(0),
+          data: cancelWFCalldata,
+        },
+      ]),
+    });
+
+    const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
+
+    return result;
+  }
 } 
