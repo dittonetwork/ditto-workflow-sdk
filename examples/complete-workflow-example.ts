@@ -4,6 +4,7 @@ import {
   ChainId,
   executeFromIpfs,
   submitWorkflow,
+  WorkflowContract,
 } from '../src';
 import { privateKeyToAccount } from 'viem/accounts';
 import { Hex } from 'viem';
@@ -125,6 +126,15 @@ async function completeWorkflowExample() {
   );
 
   logger.info("Results: ", simulateResult.results);
+
+  const wfContract = new WorkflowContract(WORKFLOW_CONTRACT_ADDRESS);
+  const cancelReceipt = await wfContract.cancelWorkflow(
+    response.ipfsHash,
+    ownerAccount,
+    sepolia.id,
+    process.env.ZERODEV_API_KEY as string,
+  );
+  logger.info("Workflow canceled: ", cancelReceipt);
 }
 
 
