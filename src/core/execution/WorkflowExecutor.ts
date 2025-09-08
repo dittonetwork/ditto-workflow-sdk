@@ -1,8 +1,7 @@
 import { Hex, createPublicClient, http, encodeFunctionData } from 'viem';
 import {
-    createZeroDevPaymasterClient,
-    createKernelAccountClient,
 } from "@zerodev/sdk";
+import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
 import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
@@ -15,7 +14,6 @@ import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
-import { UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function execute(
@@ -114,7 +112,7 @@ export async function executeJob(
         throw new Error(`Unsupported chain ID: ${job.chainId}`);
     }
     const publicClient = createPublicClient({
-        transport: http(rpcUrl),
+        transport: http(),
         chain: chain,
     });
 
@@ -126,20 +124,15 @@ export async function executeJob(
         job.session as string,
         await toECDSASigner({ signer: executorAccount })
     );
-    const kernelPaymaster = createZeroDevPaymasterClient({
-        chain: chain,
+    const kernelPaymaster = createPaymasterClient({
         transport: http(rpcUrl),
     });
-
-    const kernelClient = createKernelAccountClient({
+    const kernelClient = createBundlerClient({
         account: sessionKeyAccount,
         chain: chain,
-        bundlerTransport: http(rpcUrl),
-        paymaster: usePaymaster ? {
-            getPaymasterData(userOperation) {
-                return kernelPaymaster.sponsorUserOperation({ userOperation });
-            }
-        } : undefined,
+        transport: http(rpcUrl),
+        paymaster: usePaymaster ? kernelPaymaster : undefined,
+        client: publicClient,
     });
 
     const calls = job.steps.map(step => ({
@@ -164,15 +157,19 @@ export async function executeJob(
 
     try {
         if (simulate) {
-            const estimation = await kernelClient.estimateUserOperationGas(userOperation);
-            const maxFeePerGas = userOperation.maxFeePerGas as bigint;
+            const estimation = await kernelClient.estimateUserOperationGas({
+                account: sessionKeyAccount,
+                calls: calls,
+            });
+            const fees = await publicClient.estimateFeesPerGas();
+            const feePerGas = BigInt(fees.maxFeePerGas);
             const totalGasUnits =
                 estimation.preVerificationGas +
                 estimation.verificationGasLimit +
                 estimation.callGasLimit +
                 (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
                 (estimation.paymasterPostOpGasLimit ?? BigInt(0));
-            const totalGasEstimate = totalGasUnits * maxFeePerGas;
+            const totalGasEstimate = totalGasUnits * feePerGas;
             return {
                 gas: {
                     preVerificationGas: estimation.preVerificationGas,
@@ -186,7 +183,7 @@ export async function executeJob(
             };
         }
         const userOpHash = await kernelClient.sendUserOperation({
-            calls: calls,
+            callData: await sessionKeyAccount.encodeCalls(calls),
         });
         const result = await kernelClient.waitForUserOperationReceipt({ hash: userOpHash });
         return {

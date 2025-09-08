@@ -12,7 +12,7 @@ export class StatelessChainConfigProvider {
             config[chain.id] = {
                 chainId: chain.id,
                 chain: chain as any,
-                rpcUrl: `https://rpc.zerodev.app/api/v3/${zerodevApiKey}/chain/${chain.id}`
+                rpcUrl: `${zerodevApiKey}/${chain.id}/`
             }
         }
         return config
