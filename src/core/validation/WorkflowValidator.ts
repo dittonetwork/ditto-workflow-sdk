@@ -110,7 +110,7 @@ export class WorkflowValidator {
             if (checkSessions && job.session && chainConfig[job.chainId]) {
                 try {
                     const cfg = chainConfig[job.chainId]
-                    const publicClient = createPublicClient({ transport: http(), chain: cfg.chain })
+                    const publicClient = createPublicClient({ transport: http(cfg.rpcUrl), chain: cfg.chain })
                     await deserializePermissionAccount(
                         publicClient,
                         getEntryPoint(entryPointVersion),

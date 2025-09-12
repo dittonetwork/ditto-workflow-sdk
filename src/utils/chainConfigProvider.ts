@@ -12,7 +12,7 @@ export class StatelessChainConfigProvider {
             config[chain.id] = {
                 chainId: chain.id,
                 chain: chain as any,
-                rpcUrl: `http://bundler.develop.dittonetwork.io/${chain.id}`
+                rpcUrl: `https://bundler.develop.dittonetwork.io/${chain.id}`
             }
         }
         return config

@@ -25,7 +25,7 @@ export class WorkflowContract {
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
     const publicClient = createPublicClient({
-      transport: http(),
+      transport: http(rpcUrl),
       chain: chain,
     });
 
@@ -91,7 +91,7 @@ export class WorkflowContract {
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
     const publicClient = createPublicClient({
-      transport: http(),
+      transport: http(rpcUrl),
       chain: chain,
     });
 

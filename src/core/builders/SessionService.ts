@@ -27,7 +27,7 @@ export async function createSession(
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
     const entryPoint = getEntryPoint(entryPointVersion);
     const publicClient = createPublicClient({
-        transport: http(),
+        transport: http(rpcUrl),
         chain: chain,
     });
 

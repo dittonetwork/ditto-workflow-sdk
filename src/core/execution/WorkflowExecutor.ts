@@ -112,7 +112,7 @@ export async function executeJob(
         throw new Error(`Unsupported chain ID: ${job.chainId}`);
     }
     const publicClient = createPublicClient({
-        transport: http(),
+        transport: http(rpcUrl),
         chain: chain,
     });
 
