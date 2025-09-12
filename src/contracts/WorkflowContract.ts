@@ -1,12 +1,10 @@
 import { Address, createPublicClient, http, encodeFunctionData } from 'viem';
 import {
   createKernelAccount,
-  createZeroDevPaymasterClient,
-  createKernelAccountClient,
 } from "@zerodev/sdk";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
-import { UserOperationReceipt } from 'viem/account-abstraction';
+import { createBundlerClient, createPaymasterClient, UserOperationReceipt } from 'viem/account-abstraction';
 import { getChainConfig } from '../utils/chainConfigProvider';
 import { DittoWFRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
@@ -46,20 +44,25 @@ export class WorkflowContract {
       kernelVersion: KERNEL_V3_3,
     });
 
-    const kernelPaymaster = createZeroDevPaymasterClient({
-      chain: chain,
+    const kernelPaymaster = createPaymasterClient({
       transport: http(rpcUrl),
     });
-
-    const kernelClient = createKernelAccountClient({
+    const maxFeePerGas = await publicClient.estimateFeesPerGas();
+    const kernelClient = createBundlerClient({
       account: kernelAccount,
       chain: chain,
-      bundlerTransport: http(rpcUrl),
-      paymaster: usePaymaster ? {
-        getPaymasterData(userOperation) {
-          return kernelPaymaster.sponsorUserOperation({ userOperation });
-        }
-      } : undefined,
+      transport: http(rpcUrl),
+      paymaster: usePaymaster ? kernelPaymaster : undefined,
+      client: publicClient,
+      // userOperation: {
+      //   async estimateFeesPerGas({ account, bundlerClient, userOperation }) {
+      //     // Estimate fees per gas for the User Operation. 
+      //     return {
+      //       maxFeePerGas: BigInt(maxFeePerGas.maxFeePerGas),
+      //       maxPriorityFeePerGas: BigInt(maxFeePerGas.maxPriorityFeePerGas),
+      //     }
+      //   }
+      // }
     });
 
     const createWFCalldata = encodeFunctionData({
@@ -107,20 +110,15 @@ export class WorkflowContract {
       kernelVersion: KERNEL_V3_3,
     });
 
-    const kernelPaymaster = createZeroDevPaymasterClient({
-      chain: chain,
+    const kernelPaymaster = createPaymasterClient({
       transport: http(rpcUrl),
     });
-
-    const kernelClient = createKernelAccountClient({
+    const kernelClient = createBundlerClient({
       account: kernelAccount,
       chain: chain,
-      bundlerTransport: http(rpcUrl),
-      paymaster: usePaymaster ? {
-        getPaymasterData(userOperation) {
-          return kernelPaymaster.sponsorUserOperation({ userOperation });
-        }
-      } : undefined,
+      transport: http(rpcUrl),
+      paymaster: usePaymaster ? kernelPaymaster : undefined,
+      client: publicClient,
     });
 
     const cancelWFCalldata = encodeFunctionData({
