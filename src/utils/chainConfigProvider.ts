@@ -3,16 +3,16 @@ import { ChainId, CHAINS } from './constants'
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
 export class StatelessChainConfigProvider {
-    static getChainConfig(zerodevApiKey: string): Record<number, ChainConfig> {
-        if (!zerodevApiKey) {
-            throw new Error('ZERODEV_API_KEY is not set')
+    static getChainConfig(ipfsServiceUrl: string): Record<number, ChainConfig> {
+        if (!ipfsServiceUrl) {
+            throw new Error('Ipfs Service URL is not set')
         }
         var config: Record<number, ChainConfig> = {}
         for (const chain of CHAINS) {
             config[chain.id] = {
                 chainId: chain.id,
                 chain: chain as any,
-                rpcUrl: `https://bundler.dittonetwork.io/${chain.id}`
+                rpcUrl: `${ipfsServiceUrl}/bundler/${chain.id}`
             }
         }
         return config
@@ -25,8 +25,8 @@ export class StatelessChainConfigProvider {
     }
 }
 
-export function getChainConfig(zerodevApiKey: string): Record<number, ChainConfig> {
-    return StatelessChainConfigProvider.getChainConfig(zerodevApiKey)
+export function getChainConfig(ipfsServiceUrl: string): Record<number, ChainConfig> {
+    return StatelessChainConfigProvider.getChainConfig(ipfsServiceUrl)
 }
 
 export function getDittoWFRegistryAddress(isProd: boolean): `0x${string}` {

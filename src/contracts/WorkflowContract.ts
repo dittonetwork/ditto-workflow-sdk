@@ -8,6 +8,7 @@ import { createBundlerClient, createPaymasterClient, UserOperationReceipt } from
 import { getChainConfig } from '../utils/chainConfigProvider';
 import { DittoWFRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
+import { authHttpConfig } from '../utils/httpTransport';
 
 export class WorkflowContract {
   private readonly contractAddress: Address;
@@ -20,12 +21,19 @@ export class WorkflowContract {
     return this.contractAddress;
   }
 
-  async createWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, zerodevApiKey: string, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
-    const chainConfig = getChainConfig(zerodevApiKey);
+  async createWorkflow(
+    ipfsHash: string,
+    ownerAccount: Signer,
+    chainId: number,
+    ipfsServiceUrl: string,
+    usePaymaster: boolean = false,
+    accessToken?: string,
+  ): Promise<UserOperationReceipt> {
+    const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
     const publicClient = createPublicClient({
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
       chain: chain,
     });
 
@@ -45,13 +53,13 @@ export class WorkflowContract {
     });
 
     const kernelPaymaster = createPaymasterClient({
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
     });
     const maxFeePerGas = await publicClient.estimateFeesPerGas();
     const kernelClient = createBundlerClient({
       account: kernelAccount,
       chain: chain,
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
       paymaster: usePaymaster ? kernelPaymaster : undefined,
       client: publicClient,
       // userOperation: {
@@ -86,12 +94,19 @@ export class WorkflowContract {
     return result;
   }
 
-  async cancelWorkflow(ipfsHash: string, ownerAccount: Signer, chainId: number, zerodevApiKey: string, usePaymaster: boolean = false): Promise<UserOperationReceipt> {
-    const chainConfig = getChainConfig(zerodevApiKey);
+  async cancelWorkflow(
+    ipfsHash: string,
+    ownerAccount: Signer,
+    chainId: number,
+    ipfsServiceUrl: string,
+    usePaymaster: boolean = false,
+    accessToken?: string,
+  ): Promise<UserOperationReceipt> {
+    const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[chainId]?.chain;
     const rpcUrl = chainConfig[chainId as keyof typeof chainConfig]?.rpcUrl;
     const publicClient = createPublicClient({
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
       chain: chain,
     });
 
@@ -111,12 +126,12 @@ export class WorkflowContract {
     });
 
     const kernelPaymaster = createPaymasterClient({
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
     });
     const kernelClient = createBundlerClient({
       account: kernelAccount,
       chain: chain,
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, authHttpConfig(accessToken)),
       paymaster: usePaymaster ? kernelPaymaster : undefined,
       client: publicClient,
     });

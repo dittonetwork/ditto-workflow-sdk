@@ -13,6 +13,7 @@ import { Workflow } from '../Workflow';
 import { buildPolicies } from './PermissionBuilder';
 import { getChainConfig } from '../../utils/chainConfigProvider';
 import { entryPointVersion } from '../../utils/constants';
+import { authHttpConfig } from '../../utils/httpTransport';
 
 export async function createSession(
     workflow: Workflow,
@@ -20,14 +21,15 @@ export async function createSession(
     executorAddress: Address,
     owner: Signer,
     prodContract: boolean,
-    zerodevApiKey: string
+    ipfsServiceUrl: string,
+    accessToken?: string,
 ): Promise<string> {
-    const chainConfig = getChainConfig(zerodevApiKey);
+    const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[job.chainId]?.chain;
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
     const entryPoint = getEntryPoint(entryPointVersion);
     const publicClient = createPublicClient({
-        transport: http(rpcUrl),
+        transport: http(rpcUrl, authHttpConfig(accessToken)),
         chain: chain,
     });
 

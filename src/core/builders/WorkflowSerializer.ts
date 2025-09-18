@@ -95,15 +95,16 @@ export async function serialize(
     executorAddress: Address,
     owner: Signer,
     prodContract: boolean,
-    zerodevApiKey: string,
-    switchChain?: (chainId: number) => Promise<void>
+    ipfsServiceUrl: string,
+    switchChain?: (chainId: number) => Promise<void>,
+    accessToken?: string,
 ): Promise<SerializedWorkflowData> {
     const jobs: any[] = [];
     for (const job of workflow.jobs) {
         if (switchChain) {
             await switchChain(job.chainId);
         }
-        const session = await createSession(workflow, job, executorAddress, owner, prodContract, zerodevApiKey);
+        const session = await createSession(workflow, job, executorAddress, owner, prodContract, ipfsServiceUrl, accessToken);
         jobs.push({
             id: job.id,
             chainId: job.chainId,

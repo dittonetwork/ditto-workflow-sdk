@@ -13,16 +13,17 @@ export async function submitWorkflow(
     storage: IWorkflowStorage,
     owner: Signer,
     prodContract: boolean,
-    zerodevApiKey: string,
+    ipfsServiceUrl: string,
     usePaymaster: boolean = false,
-    switchChain?: (chainId: number) => Promise<void>
+    switchChain?: (chainId: number) => Promise<void>,
+    accessToken?: string,
 ): Promise<{
     ipfsHash: string;
     userOpHashes: UserOperationReceipt[];
 }> {
     workflow.typify();
-    const serializedData = await serialize(workflow, executorAddress, owner, prodContract, zerodevApiKey, switchChain);
-    // const validation = await WorkflowValidator.validate(workflow, owner, zerodevApiKey);
+    const serializedData = await serialize(workflow, executorAddress, owner, prodContract, ipfsServiceUrl, switchChain, accessToken);
+    // const validation = await WorkflowValidator.validate(workflow, owner, ipfsServiceUrl);
     // if (validation.status !== ValidatorStatus.Success) {
     //     throw new Error(validatorStatusMessage(validation.status));
     // }
@@ -34,7 +35,7 @@ export async function submitWorkflow(
         if (switchChain) {
             await switchChain(job.chainId);
         }
-        const receipt = await workflowContract.createWorkflow(ipfsHash, owner, job.chainId, zerodevApiKey, usePaymaster);
+        const receipt = await workflowContract.createWorkflow(ipfsHash, owner, job.chainId, ipfsServiceUrl, usePaymaster, accessToken);
         userOpHashes.push(receipt);
     }
 

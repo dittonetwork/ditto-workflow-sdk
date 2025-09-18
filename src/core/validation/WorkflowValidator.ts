@@ -9,6 +9,7 @@ import { entryPointVersion } from '../../utils/constants'
 import { buildPolicies } from '../builders/PermissionBuilder'
 import { OnchainConditionOperator } from '../types'
 import { createSession } from '../builders/SessionService'
+import { authHttpConfig } from '../../utils/httpTransport'
 
 export enum ValidatorStatus {
     Success = 0,
@@ -56,8 +57,9 @@ export class WorkflowValidator {
     static async validate(
         workflow: Workflow,
         executor: Signer,
-        zerodevApiKey: string,
+        ipfsServiceUrl: string,
         options: { checkSessions?: boolean } = {},
+        accessToken?: string,
     ): Promise<{ status: ValidatorStatus; errors: string[] }> {
         const { checkSessions = false } = options
         const errors: string[] = []
@@ -99,7 +101,7 @@ export class WorkflowValidator {
             }
         }
 
-        const chainConfig = getChainConfig(zerodevApiKey)
+        const chainConfig = getChainConfig(ipfsServiceUrl)
 
         for (const job of workflow.jobs) {
             if (checkSessions && !job.session) {
@@ -110,7 +112,7 @@ export class WorkflowValidator {
             if (checkSessions && job.session && chainConfig[job.chainId]) {
                 try {
                     const cfg = chainConfig[job.chainId]
-                    const publicClient = createPublicClient({ transport: http(cfg.rpcUrl), chain: cfg.chain })
+                    const publicClient = createPublicClient({ transport: http(cfg.rpcUrl, authHttpConfig(accessToken)), chain: cfg.chain })
                     await deserializePermissionAccount(
                         publicClient,
                         getEntryPoint(entryPointVersion),
