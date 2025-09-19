@@ -8,6 +8,7 @@ import { toECDSASigner } from "@zerodev/permissions/signers";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { getChainConfig, getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 import { DittoWFRegistryAbi, entryPointVersion } from '../../utils/constants';
+import { authHttpConfig } from '../../utils/httpTransport';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';
 import { Workflow } from '../Workflow';
@@ -21,10 +22,11 @@ export async function execute(
     executorAccount: Signer,
     ipfsHash: string,
     prodContract: boolean,
-    zerodevApiKey: string,
+    ipfsServiceUrl: string,
     simulate: boolean = false,
     usePaymaster: boolean = false,
-    logger: Logger = getDefaultLogger()
+    logger: Logger = getDefaultLogger(),
+    accessToken?: string,
 ): Promise<{
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
@@ -42,9 +44,10 @@ export async function execute(
                     executorAccount,
                     ipfsHash,
                     prodContract,
-                    zerodevApiKey,
+                    ipfsServiceUrl,
                     simulate,
                     usePaymaster,
+                    accessToken,
                 );
 
                 if (result.error) {
@@ -96,23 +99,24 @@ export async function executeJob(
     executorAccount: Signer,
     ipfsHash: string,
     prodContract: boolean,
-    zerodevApiKey: string,
+    ipfsServiceUrl: string,
     simulate: boolean = false,
     usePaymaster: boolean = false,
+    accessToken?: string,
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
     userOp?: UserOperation,
     error?: string,
 }> {
-    const chainConfig = getChainConfig(zerodevApiKey);
+    const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[job.chainId]?.chain;
     const rpcUrl = chainConfig[job.chainId]?.rpcUrl;
     if (!chain) {
         throw new Error(`Unsupported chain ID: ${job.chainId}`);
     }
     const publicClient = createPublicClient({
-        transport: http(rpcUrl),
+        transport: http(rpcUrl, authHttpConfig(accessToken)),
         chain: chain,
     });
 
@@ -125,12 +129,12 @@ export async function executeJob(
         await toECDSASigner({ signer: executorAccount })
     );
     const kernelPaymaster = createPaymasterClient({
-        transport: http(rpcUrl),
+        transport: http(rpcUrl, authHttpConfig(accessToken)),
     });
     const kernelClient = createBundlerClient({
         account: sessionKeyAccount,
         chain: chain,
-        transport: http(rpcUrl),
+        transport: http(rpcUrl, authHttpConfig(accessToken)),
         paymaster: usePaymaster ? kernelPaymaster : undefined,
         client: publicClient,
     });
@@ -203,9 +207,10 @@ export async function executeFromIpfs(
     storage: IWorkflowStorage,
     executorAccount: Signer,
     prodContract: boolean,
-    zerodevApiKey: string,
+    ipfsServiceUrl: string,
     simulate: boolean = false,
-    usePaymaster: boolean = false
+    usePaymaster: boolean = false,
+    accessToken?: string,
 ): Promise<{
     success: boolean;
     results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
@@ -213,11 +218,11 @@ export async function executeFromIpfs(
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
-    // const validation = await WorkflowValidator.validate(workflow, executorAccount, zerodevApiKey, { checkSessions: true });
+    // const validation = await WorkflowValidator.validate(workflow, executorAccount, ipfsServiceUrl, { checkSessions: true });
     // if (validation.status !== ValidatorStatus.Success) {
     //     throw new Error(validatorStatusMessage(validation.status));
     // }
-    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, zerodevApiKey, simulate, usePaymaster);
+    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, ipfsServiceUrl, simulate, usePaymaster, undefined, accessToken);
 
     return {
         success: results.success,
