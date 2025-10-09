@@ -82,7 +82,7 @@ async function simulateWorkflow(
     executorAccount,
     false,
     process.env.IPFS_SERVICE_URL as string,
-    false,
+    true,
     false
   );
 
