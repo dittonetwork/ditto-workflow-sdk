@@ -3,12 +3,17 @@ import {
   createKernelAccount,
 } from "@zerodev/sdk";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
+import { signerToSessionKeyValidator } from "@zerodev/session-key";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { createBundlerClient, createPaymasterClient, UserOperationReceipt } from 'viem/account-abstraction';
 import { getChainConfig } from '../utils/chainConfigProvider';
 import { DittoWFRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
 import { authHttpConfig } from '../utils/httpTransport';
+import { toEmptyECDSASigner } from '@zerodev/permissions/signers';
+import { buildSudoPolicy } from '../core/builders/PermissionBuilder';
+import { serializePermissionAccount, toPermissionValidator } from "@zerodev/permissions";
+
 
 export class WorkflowContract {
   private readonly contractAddress: Address;
@@ -44,9 +49,18 @@ export class WorkflowContract {
       signer: ownerAccount,
       kernelVersion: KERNEL_V3_3,
     });
+    const sessionAccountSigner = await toEmptyECDSASigner("0xF177179963aA0EDE80Be4396d04d970171CF6a36");
+
+    const sessionKeyValidator = await toPermissionValidator(publicClient, {
+      entryPoint: entryPoint,
+      signer: sessionAccountSigner,
+      policies: [buildSudoPolicy()],
+      kernelVersion: KERNEL_V3_3,
+    });
     const kernelAccount = await createKernelAccount(publicClient, {
       plugins: {
         sudo: ownerValidator,
+        regular: sessionKeyValidator
       },
       entryPoint,
       kernelVersion: KERNEL_V3_3,
@@ -55,7 +69,7 @@ export class WorkflowContract {
     const kernelPaymaster = createPaymasterClient({
       transport: http(rpcUrl, authHttpConfig(accessToken)),
     });
-    const maxFeePerGas = await publicClient.estimateFeesPerGas();
+    // const maxFeePerGas = await publicClient.estimateFeesPerGas();
     const kernelClient = createBundlerClient({
       account: kernelAccount,
       chain: chain,
