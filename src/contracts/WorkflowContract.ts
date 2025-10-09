@@ -52,7 +52,6 @@ export class WorkflowContract {
     const kernelAccount = await createKernelAccount(publicClient, {
       plugins: {
         sudo: ownerValidator,
-        regular: sessionKeyValidator
       },
       entryPoint,
       kernelVersion: KERNEL_V3_3,
