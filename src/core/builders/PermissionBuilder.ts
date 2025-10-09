@@ -5,11 +5,13 @@ import {
     CallPolicyVersion,
     ParamCondition,
     toRateLimitPolicy,
-    toTimestampPolicy
+    toTimestampPolicy,
+    SudoPolicyParams
 } from "@zerodev/permissions/policies";
 import { DittoWFRegistryAbi } from '../../utils/constants';
 import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
-import { Address } from 'viem';
+import { Address, concatHex } from 'viem';
+import { Policy } from '@zerodev/permissions/types';
 
 interface Permission {
     target: Address;
@@ -110,6 +112,24 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
     return result;
 }
 
+export function buildSudoPolicy(): Policy {
+    const policyFlag = "0x0000";
+    const policyAddress = "0xF356F9Cc14F0e06C355694cd77c0B94660f0810b";
+    return {
+        getPolicyData: () => {
+            return "0x"
+        },
+        getPolicyInfoInBytes: () => {
+            return concatHex([policyFlag, policyAddress])
+        },
+        policyParams: {
+            type: "sudo",
+            policyAddress,
+            policyFlag
+        } as SudoPolicyParams & { type: "sudo" }
+    }
+}
+
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
 
     const permissions: Permission[] = job.steps.map(step => {
@@ -154,6 +174,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
             policyVersion: CallPolicyVersion.V0_0_4,
             permissions: dedupedPermissions,
         }),
+        buildSudoPolicy(),
     ];
     if (workflow.count && workflow.count > 0) {
         if (workflow.interval && workflow.interval > 0) {

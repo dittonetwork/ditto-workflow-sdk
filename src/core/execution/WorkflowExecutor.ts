@@ -15,7 +15,6 @@ import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
-import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 
 export async function execute(
     workflow: Workflow,
@@ -154,9 +153,16 @@ export async function executeJob(
         }),
     });
 
+
+    const code = await publicClient.getCode({ address: "0xA00F87E6CBb55605DaA9435792D6551C39C5E0F2" })
     const userOperation = await kernelClient.prepareUserOperation({
         account: sessionKeyAccount,
         calls: calls,
+        stateOverride: [
+            {
+                address: '0x5c3bf62206e62796fc14fa0433e49b1474a12f08',
+                code: code,
+            }]
     });
 
     try {
@@ -164,6 +170,11 @@ export async function executeJob(
             const estimation = await kernelClient.estimateUserOperationGas({
                 account: sessionKeyAccount,
                 calls: calls,
+                stateOverride: [
+                    {
+                        address: '0x5c3bf62206e62796fc14fa0433e49b1474a12f08',
+                        code: code,
+                    }]
             });
             const fees = await publicClient.estimateFeesPerGas();
             const feePerGas = BigInt(fees.maxFeePerGas);

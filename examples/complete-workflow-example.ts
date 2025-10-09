@@ -10,7 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { Hex } from 'viem';
 import * as dotenv from 'dotenv';
 import { IpfsStorage } from '../src/storage/IpfsStorage';
-import { sepolia } from 'viem/chains';
+import { baseSepolia, sepolia } from 'viem/chains';
 import { Signer } from '@zerodev/sdk/types';
 import { addressToEmptyAccount } from '@zerodev/sdk';
 import { PinoLogger } from '../src';
@@ -40,10 +40,9 @@ async function createAndSubmitWorkflow(
     .addCronTrigger("* * * * *")
     .setCount(3)
     .setValidAfter(Date.now() - 1000 * 60 * 60 * 24 * 30)
-    .setValidUntil(Date.now() + 1000 * 60 * 60 * 24 * 30)
-    .addJob(
+    .setValidUntil(Date.now() + 1000 * 60 * 60 * 24 * 30).addJob(
       JobBuilder.create("job-1754655494259")
-        .setChainId(sepolia.id)
+        .setChainId(baseSepolia.id)
         .addStep({
           target: "0xa77c5c0d16fb00bb9cbfce13b4c7802e265d3f62",
           abi: "",
@@ -56,18 +55,6 @@ async function createAndSubmitWorkflow(
           args: [],
           value: BigInt(2000000000000)
         })
-        .addStep({
-          target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
-          abi: "returnBool(bool value)",
-          args: [false],
-          value: BigInt(0)
-        })
-        .addStep({
-          target: "0x23d20b93a238da60486b80e03afcf4b8aa3c7af6",
-          abi: "returnBool(bool value)",
-          args: [true],
-          value: BigInt(0)
-        })
         .build()
     )
     .build();
@@ -78,7 +65,7 @@ async function createAndSubmitWorkflow(
     storage,
     ownerAccount,
     false,
-    process.env.ZERODEV_API_KEY as string,
+    process.env.IPFS_SERVICE_URL as string,
   );
 
   return response;
@@ -94,8 +81,8 @@ async function simulateWorkflow(
     storage,
     executorAccount,
     false,
-    process.env.ZERODEV_API_KEY as string,
-    false,
+    process.env.IPFS_SERVICE_URL as string,
+    true,
     false
   );
 
@@ -132,7 +119,7 @@ async function completeWorkflowExample() {
     response.ipfsHash,
     ownerAccount,
     sepolia.id,
-    process.env.ZERODEV_API_KEY as string,
+    process.env.IPFS_SERVICE_URL as string,
   );
   logger.info("Workflow canceled: ", cancelReceipt);
 }
