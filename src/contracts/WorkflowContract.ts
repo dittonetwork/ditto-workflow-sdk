@@ -49,18 +49,10 @@ export class WorkflowContract {
       signer: ownerAccount,
       kernelVersion: KERNEL_V3_3,
     });
-    const sessionAccountSigner = await toEmptyECDSASigner("0xF177179963aA0EDE80Be4396d04d970171CF6a36");
 
-    const sessionKeyValidator = await toPermissionValidator(publicClient, {
-      entryPoint: entryPoint,
-      signer: sessionAccountSigner,
-      policies: [buildSudoPolicy()],
-      kernelVersion: KERNEL_V3_3,
-    });
     const kernelAccount = await createKernelAccount(publicClient, {
       plugins: {
         sudo: ownerValidator,
-        regular: sessionKeyValidator
       },
       entryPoint,
       kernelVersion: KERNEL_V3_3,
