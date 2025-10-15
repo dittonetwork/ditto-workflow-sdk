@@ -68,6 +68,7 @@ export async function execute(
                     success: true,
                     result: result.result,
                     userOp: result.userOp,
+                    signature: result.signature,
                     chainId: job.chainId,
                     gas: result.gas,
                     start,
@@ -106,6 +107,7 @@ export async function executeJob(
     result?: UserOperationReceipt,
     gas?: GasEstimate,
     userOp?: UserOperation,
+    signature?: Hex,
     error?: string,
 }> {
     const chainConfig = getChainConfig(ipfsServiceUrl);
@@ -165,6 +167,9 @@ export async function executeJob(
             }]
     });
 
+    //const signature = await sessionKeyAccount.signUserOperation(userOperation);
+    const signature = "0xdead";
+
     try {
         if (simulate) {
             const estimation = await kernelClient.estimateUserOperationGas({
@@ -195,6 +200,7 @@ export async function executeJob(
                     totalGasEstimate,
                 },
                 userOp: userOperation,
+                signature: signature,
             };
         }
         const userOpHash = await kernelClient.sendUserOperation({
@@ -204,6 +210,7 @@ export async function executeJob(
         return {
             result: result,
             userOp: userOperation,
+            signature: signature,
         };
     } catch (error) {
         return {
