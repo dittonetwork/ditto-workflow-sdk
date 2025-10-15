@@ -167,8 +167,13 @@ export async function executeJob(
             }]
     });
 
-    //const signature = await sessionKeyAccount.signUserOperation(userOperation);
-    const signature = "0xdead";
+    let signature: Hex;
+    try {
+        signature = await sessionKeyAccount.signUserOperation(userOperation);
+    } catch (error) {
+        console.log(error);
+        signature = userOperation.signature;
+    }
 
     try {
         if (simulate) {
