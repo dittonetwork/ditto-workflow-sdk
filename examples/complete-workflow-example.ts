@@ -82,7 +82,7 @@ async function simulateWorkflow(
     executorAccount,
     false,
     process.env.IPFS_SERVICE_URL as string,
-    true,
+    false,
     false
   );
 
@@ -113,15 +113,6 @@ async function completeWorkflowExample() {
   );
 
   logger.info("Results: ", simulateResult.results);
-
-  const wfContract = new WorkflowContract(WORKFLOW_CONTRACT_ADDRESS);
-  const cancelReceipt = await wfContract.cancelWorkflow(
-    response.ipfsHash,
-    ownerAccount,
-    sepolia.id,
-    process.env.IPFS_SERVICE_URL as string,
-  );
-  logger.info("Workflow canceled: ", cancelReceipt);
 }
 
 
