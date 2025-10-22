@@ -114,7 +114,7 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
 
 export function buildSudoPolicy(): Policy {
     const policyFlag = "0x0000";
-    const policyAddress = "0xF356F9Cc14F0e06C355694cd77c0B94660f0810b";
+    const policyAddress = "0x4C0F7938105E45E67c545aecfA66E234fd807d1c";
     return {
         getPolicyData: () => {
             return "0x"
