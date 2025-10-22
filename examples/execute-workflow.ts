@@ -26,8 +26,9 @@ async function simulateWorkflow(
         ipfsHash,
         storage,
         executorAccount,
-        BigInt(0),
-        false, // Set to true for dry run simulation
+        true,
+        IPFS_SERVICE_URL,
+        true, // Set to true for dry run simulation
         false
     );
 
