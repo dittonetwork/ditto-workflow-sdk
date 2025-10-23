@@ -1,5 +1,5 @@
-import { ChainId, CHAINS } from './constants'
-
+import { ChainId, CHAINS, TEST_CHAINS } from './constants'
+import { Chain } from 'viem'
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
 export class StatelessChainConfigProvider {
@@ -23,6 +23,10 @@ export class StatelessChainConfigProvider {
         }
         return '0x580F57c1668d9272aE54168f630cc84b10ec65F7' as `0x${string}`
     }
+}
+
+export function getChains(isProd: boolean): Chain[] {
+    return isProd ? CHAINS : TEST_CHAINS;
 }
 
 export function getChainConfig(ipfsServiceUrl: string): Record<number, ChainConfig> {
