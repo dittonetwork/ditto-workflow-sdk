@@ -1,4 +1,4 @@
-import { ChainId, CHAINS, TEST_CHAINS } from './constants'
+import { ChainId, PROD_CHAINS, TEST_CHAINS } from './constants'
 import { Chain } from 'viem'
 type ChainConfig = { chainId: ChainId; chain: any; rpcUrl: string }
 
@@ -8,7 +8,7 @@ export class StatelessChainConfigProvider {
             throw new Error('Ipfs Service URL is not set')
         }
         var config: Record<number, ChainConfig> = {}
-        for (const chain of CHAINS) {
+        for (const chain of [...PROD_CHAINS, ...TEST_CHAINS]) {
             config[chain.id] = {
                 chainId: chain.id,
                 chain: chain as any,
@@ -26,7 +26,7 @@ export class StatelessChainConfigProvider {
 }
 
 export function getChains(isProd: boolean): Chain[] {
-    return isProd ? CHAINS : TEST_CHAINS;
+    return isProd ? PROD_CHAINS : TEST_CHAINS;
 }
 
 export function getChainConfig(ipfsServiceUrl: string): Record<number, ChainConfig> {

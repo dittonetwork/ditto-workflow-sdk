@@ -12,7 +12,7 @@ export enum ChainId {
     MAINNET = 1,
 }
 
-export const CHAINS = [base, mainnet, arbitrum, polygon, optimism]
+export const PROD_CHAINS = [base, mainnet, arbitrum, polygon, optimism]
 export const TEST_CHAINS = [sepolia, baseSepolia, holesky]
 
 export const DittoWFRegistryAbi = [
