@@ -13,7 +13,7 @@ export enum ChainId {
 }
 
 export const PROD_CHAINS = [base, mainnet, arbitrum, polygon, optimism]
-export const TEST_CHAINS = [sepolia, baseSepolia, holesky]
+export const TEST_CHAINS = [sepolia, baseSepolia]
 
 export const DittoWFRegistryAbi = [
     parseAbiItem('function markRun(string)') as AbiFunction,
