@@ -228,6 +228,146 @@ All triggers in the `triggers` array are combined with logical **AND**. If the a
 
 ---
 
+## 2.1 Data References (Cross-Contract Data Fetching)
+
+Data References allow you to **fetch data from one contract and use it as an argument in another contract call**. This happens transparently at execution time without changing the workflow interface.
+
+### Use Case
+
+Imagine you want to swap tokens at the current Chainlink price. Instead of hardcoding the price, you can reference the Chainlink oracle and the price will be fetched automatically before the swap is executed.
+
+### How It Works
+
+1. Use the `dataRef()` helper to create a reference string
+2. Place it in your step's `args` array
+3. At execution time, the SDK automatically:
+   - Fetches the current block number
+   - Makes a read-call to the specified contract
+   - Substitutes the result into the step arguments
+
+### API
+
+```typescript
+import { dataRef } from '@ditto/workflow-sdk';
+
+// Create a data reference
+const priceRef = dataRef({
+  target: '0x694AA1769357215DE4FAC081bf1f309aDC325306', // Chainlink ETH/USD on Sepolia
+  abi: 'latestRoundData() returns (uint80, int256, uint256, uint256, uint80)',
+  chainId: 11155111,
+  resultIndex: 1, // Use the 2nd return value (answer/price)
+});
+```
+
+**Parameters:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `target` | `Address` | Contract address to read from |
+| `abi` | `string` | Function signature with return types |
+| `args` | `any[]` | Arguments for the read call (optional, default `[]`) |
+| `chainId` | `number` | Chain ID where the contract is deployed |
+| `resultIndex` | `number` | Index of return value to use (optional, default `0`) |
+
+### Example: Swap at Oracle Price
+
+```typescript
+import { WorkflowBuilder, JobBuilder, dataRef, ChainId } from '@ditto/workflow-sdk';
+
+// Reference to Chainlink ETH/USD price feed
+const ethPrice = dataRef({
+  target: '0x694AA1769357215DE4FAC081bf1f309aDC325306',
+  abi: 'latestRoundData() returns (uint80, int256, uint256, uint256, uint80)',
+  chainId: ChainId.SEPOLIA,
+  resultIndex: 1,
+});
+
+// Reference to get user's token balance
+const userBalance = dataRef({
+  target: '0xTokenAddress...',
+  abi: 'balanceOf(address) returns (uint256)',
+  args: ['0xUserAddress...'],
+  chainId: ChainId.SEPOLIA,
+});
+
+const workflow = WorkflowBuilder.create(owner)
+  .addJob(
+    JobBuilder.create('price-aware-swap')
+      .setChainId(ChainId.SEPOLIA)
+      .addStep({
+        target: '0xSwapRouter...',
+        abi: 'swap(uint256 amountIn, uint256 minPrice)',
+        args: [userBalance, ethPrice], // Both resolved at execution time!
+        value: 0n,
+      })
+      .build()
+  )
+  .build();
+```
+
+### Deterministic Consensus (Othentic Flow)
+
+For multi-operator consensus, data references are resolved **deterministically**:
+
+1. **Leader** fetches data at a specific block number
+2. Block numbers are captured in `DataRefContext`
+3. Context is passed to **operators** via task parameters
+4. Operators replay reads at the **same block numbers**
+5. Identical results → consensus achieved
+
+```typescript
+// Leader simulation returns context
+const result = await simulateWorkflow(workflow, ipfsHash, ...);
+console.log(result.dataRefContext);
+// {
+//   chainBlocks: { 11155111: 7234567n },
+//   resolvedRefs: [{ ref: {...}, value: 250000000000n, blockNumber: 7234567n }]
+// }
+
+// Context is serialized and passed to operators
+const serialized = result.dataRefContextSerialized;
+```
+
+### Supported Patterns
+
+Data references can be used anywhere in `args`:
+
+```typescript
+// Direct argument
+args: [dataRef({...})]
+
+// In arrays
+args: [[dataRef({...}), otherValue]]
+
+// In objects
+args: [{ price: dataRef({...}), amount: 100n }]
+
+// Multiple refs
+args: [dataRef({...}), dataRef({...}), staticValue]
+```
+
+### Exports
+
+```typescript
+import {
+  dataRef,                    // Helper to create ref string
+  DataRefResolver,            // Low-level resolver class
+  DataRef,                    // Type for ref object
+  DataRefContext,             // Context with block numbers
+  serializeDataRefContext,    // Serialize for transmission
+  deserializeDataRefContext,  // Deserialize from transmission
+} from '@ditto/workflow-sdk';
+```
+
+### Running the Example
+
+```bash
+# From ditto-workflow-sdk directory
+npm run example:dataref
+```
+
+See `examples/data-ref-workflow.ts` for a complete working example.
+
 ---
 
 ## 3. Workflow Life-cycle

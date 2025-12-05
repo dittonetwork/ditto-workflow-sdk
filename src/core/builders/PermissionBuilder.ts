@@ -172,7 +172,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
     const policies = [
         toCallPolicy({
             policyVersion: CallPolicyVersion.V0_0_4,
-            permissions: dedupedPermissions,
+            permissions: dedupedPermissions as any,
         }),
         buildSudoPolicy(),
     ];

@@ -1,4 +1,4 @@
-import { Hex, createPublicClient, http, encodeFunctionData } from 'viem';
+import { Hex, createPublicClient, http, encodeFunctionData, parseAbiItem, AbiFunction, Address } from 'viem';
 import {
 } from "@zerodev/sdk";
 import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
@@ -11,11 +11,32 @@ import { DittoWFRegistryAbi, entryPointVersion } from '../../utils/constants';
 import { authHttpConfig } from '../../utils/httpTransport';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';
+import { Step } from '../Step';
 import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
+import { DataRefResolver, DataRefContext } from '../DataRefResolver';
 
+/**
+ * Execute a workflow with optional DataRef context for deterministic consensus.
+ * 
+ * In Othentic flow:
+ * - Leader calls this WITHOUT dataRefContext → creates new context with block numbers
+ * - Leader passes dataRefContext to operators via proofOfTask
+ * - Operators call this WITH dataRefContext → uses same block numbers for deterministic replay
+ * 
+ * @param workflow - The workflow to execute
+ * @param executorAccount - Account to sign operations
+ * @param ipfsHash - Workflow IPFS hash
+ * @param prodContract - Use production contract address
+ * @param ipfsServiceUrl - IPFS service URL for chain config
+ * @param simulate - If true, only simulate (don't send)
+ * @param usePaymaster - Use paymaster for gas
+ * @param logger - Logger instance
+ * @param accessToken - Optional auth token
+ * @param dataRefContext - Optional context for deterministic replay (operator mode)
+ */
 export async function execute(
     workflow: Workflow,
     executorAccount: Signer,
@@ -26,11 +47,29 @@ export async function execute(
     usePaymaster: boolean = false,
     logger: Logger = getDefaultLogger(),
     accessToken?: string,
+    dataRefContext?: DataRefContext,
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation, chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
+    results: Array<{ 
+        success: boolean; 
+        result?: UserOperationReceipt; 
+        userOp?: UserOperation; 
+        chainId?: number; 
+        gas?: GasEstimate; 
+        error?: string; 
+        start: string; 
+        finish: string;
+        /** DataRef context for this job - pass to operators */
+        dataRefContext?: DataRefContext;
+    }>;
+    /** Combined DataRef context from all jobs - pass to operators for consensus */
+    dataRefContext?: DataRefContext;
 }> {
     workflow.typify();
+    
+    // Collect all contexts from jobs
+    const allContexts: DataRefContext[] = [];
+    
     const results = await Promise.all(
         workflow.jobs.map(async (job, i) => {
             if (!job.session) {
@@ -47,7 +86,13 @@ export async function execute(
                     simulate,
                     usePaymaster,
                     accessToken,
+                    dataRefContext,
                 );
+                
+                // Collect context for combining later
+                if (result.dataRefContext) {
+                    allContexts.push(result.dataRefContext);
+                }
 
                 if (result.error) {
                     logger.error(`❌ Session ${i + 1} failed:`, result.error);
@@ -59,6 +104,7 @@ export async function execute(
                         chainId: job.chainId,
                         start,
                         finish,
+                        dataRefContext: result.dataRefContext,
                     };
                 }
 
@@ -73,6 +119,7 @@ export async function execute(
                     gas: result.gas,
                     start,
                     finish,
+                    dataRefContext: result.dataRefContext,
                 };
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
@@ -87,13 +134,38 @@ export async function execute(
             }
         })
     );
+    
+    // Combine all contexts into one
+    const combinedContext: DataRefContext = {
+        chainBlocks: {},
+        resolvedRefs: [],
+    };
+    for (const ctx of allContexts) {
+        Object.assign(combinedContext.chainBlocks, ctx.chainBlocks);
+        combinedContext.resolvedRefs.push(...ctx.resolvedRefs);
+    }
 
     return {
         success: results.every((r: any) => r.success),
-        results
+        results,
+        dataRefContext: combinedContext.resolvedRefs.length > 0 ? combinedContext : undefined,
     };
 }
 
+/**
+ * Execute a single job with optional DataRef context for deterministic consensus.
+ * 
+ * @param job - The job to execute
+ * @param executorAccount - Account to sign operations
+ * @param ipfsHash - Workflow IPFS hash
+ * @param prodContract - Use production contract address
+ * @param ipfsServiceUrl - IPFS service URL for chain config
+ * @param simulate - If true, only simulate (don't send)
+ * @param usePaymaster - Use paymaster for gas
+ * @param accessToken - Optional auth token
+ * @param dataRefContext - Optional context for deterministic replay (operator mode)
+ *                         If not provided, creates new context (leader mode)
+ */
 export async function executeJob(
     job: Job,
     executorAccount: Signer,
@@ -103,12 +175,15 @@ export async function executeJob(
     simulate: boolean = false,
     usePaymaster: boolean = false,
     accessToken?: string,
+    dataRefContext?: DataRefContext,
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
     userOp?: UserOperation,
     signature?: Hex,
     error?: string,
+    /** DataRef context with block numbers - pass to operators for deterministic replay */
+    dataRefContext?: DataRefContext,
 }> {
     const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[job.chainId]?.chain;
@@ -140,7 +215,30 @@ export async function executeJob(
         client: publicClient,
     });
 
-    const calls = job.steps.map(step => ({
+    // Resolve data references in step arguments before execution
+    // If dataRefContext provided, use it for deterministic replay (operator mode)
+    // Otherwise create new context (leader mode)
+    const dataRefResolver = new DataRefResolver(ipfsServiceUrl, accessToken, dataRefContext);
+    const resolvedSteps: Step[] = [];
+    
+    for (const step of job.steps) {
+      if (DataRefResolver.hasDataRefs(step.args)) {
+        const resolvedArgs = await dataRefResolver.resolveArgs(step.args);
+        resolvedSteps.push(new Step({
+          target: step.target as Address,
+          abi: step.abi,
+          args: resolvedArgs,
+          value: step.value,
+        }));
+      } else {
+        resolvedSteps.push(step);
+      }
+    }
+    
+    // Get the context (with block numbers) for passing to operators
+    const resolvedContext = dataRefResolver.getContext();
+
+    const calls = resolvedSteps.map(step => ({
         to: step.target as `0x${string}`,
         value: step.value ?? BigInt(0),
         data: step.getCalldata() as `0x${string}`,
@@ -206,6 +304,7 @@ export async function executeJob(
                 },
                 userOp: userOperation,
                 signature: signature,
+                dataRefContext: resolvedContext,
             };
         }
         const userOpHash = await kernelClient.sendUserOperation({
@@ -216,15 +315,30 @@ export async function executeJob(
             result: result,
             userOp: userOperation,
             signature: signature,
+            dataRefContext: resolvedContext,
         };
     } catch (error) {
         return {
             userOp: userOperation,
             error: error instanceof Error ? error.message : 'Unknown error',
+            dataRefContext: resolvedContext,
         }
     }
 }
 
+/**
+ * Execute a workflow from IPFS with optional DataRef context for deterministic consensus.
+ * 
+ * @param ipfsHash - Workflow IPFS hash
+ * @param storage - IPFS storage interface
+ * @param executorAccount - Account to sign operations
+ * @param prodContract - Use production contract address
+ * @param ipfsServiceUrl - IPFS service URL for chain config
+ * @param simulate - If true, only simulate (don't send)
+ * @param usePaymaster - Use paymaster for gas
+ * @param accessToken - Optional auth token
+ * @param dataRefContext - Optional context for deterministic replay (operator mode)
+ */
 export async function executeFromIpfs(
     ipfsHash: string,
     storage: IWorkflowStorage,
@@ -234,10 +348,23 @@ export async function executeFromIpfs(
     simulate: boolean = false,
     usePaymaster: boolean = false,
     accessToken?: string,
+    dataRefContext?: DataRefContext,
 ): Promise<{
     success: boolean;
-    results: Array<{ success: boolean; result?: UserOperationReceipt; userOp?: UserOperation; chainId?: number; gas?: GasEstimate; error?: string; start: string; finish: string }>;
+    results: Array<{ 
+        success: boolean; 
+        result?: UserOperationReceipt; 
+        userOp?: UserOperation; 
+        chainId?: number; 
+        gas?: GasEstimate; 
+        error?: string; 
+        start: string; 
+        finish: string;
+        dataRefContext?: DataRefContext;
+    }>;
     markRunHash?: Hex;
+    /** DataRef context - pass to operators for deterministic consensus */
+    dataRefContext?: DataRefContext;
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
@@ -245,10 +372,22 @@ export async function executeFromIpfs(
     // if (validation.status !== ValidatorStatus.Success) {
     //     throw new Error(validatorStatusMessage(validation.status));
     // }
-    const results = await execute(workflow, executorAccount, ipfsHash, prodContract, ipfsServiceUrl, simulate, usePaymaster, undefined, accessToken);
+    const results = await execute(
+        workflow, 
+        executorAccount, 
+        ipfsHash, 
+        prodContract, 
+        ipfsServiceUrl, 
+        simulate, 
+        usePaymaster, 
+        undefined, 
+        accessToken,
+        dataRefContext
+    );
 
     return {
         success: results.success,
         results: results.results,
+        dataRefContext: results.dataRefContext,
     };
 } 
