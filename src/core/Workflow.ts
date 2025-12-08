@@ -100,8 +100,13 @@ export class Workflow implements IWorkflow {
   }
 
   typify(): this {
+    // Data reference prefix - values starting with this should not be coerced
+    const DATA_REF_PREFIX = '$ref:';
+    
     const coerce = (val: any, type: string) => {
       if (typeof val !== 'string') return val;
+      // Skip coercion for data references - they will be resolved at execution time
+      if (val.startsWith(DATA_REF_PREFIX)) return val;
       const t = type.toLowerCase();
       if (t === 'bool') {
         const v = val.trim().toLowerCase();

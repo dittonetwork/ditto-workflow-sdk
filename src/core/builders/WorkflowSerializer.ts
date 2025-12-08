@@ -54,8 +54,13 @@ function extractInputTypesFromAbiSignature(signature: string): string[] {
         });
 }
 
+// Data reference prefix - values starting with this should not be coerced
+const DATA_REF_PREFIX = '$ref:';
+
 function coerceArgToType(raw: any, type: string): any {
     if (raw === null || raw === undefined) return raw;
+    // Skip coercion for data references - they will be resolved at execution time
+    if (typeof raw === 'string' && raw.startsWith(DATA_REF_PREFIX)) return raw;
     const lower = type.toLowerCase();
     if (lower === 'bool') {
         if (typeof raw === 'boolean') return raw;
