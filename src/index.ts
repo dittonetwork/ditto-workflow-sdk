@@ -28,3 +28,16 @@ export { execute, executeFromIpfs, executeJob } from './core/execution/WorkflowE
 export { submitWorkflow } from './core/execution/WorkflowSubmitter';
 export { serialize, deserialize } from './core/builders/WorkflowSerializer';
 export { createSession } from './core/builders/SessionService';
+
+// Data Reference exports - for fetching data from one contract and passing to another
+export { 
+  DataRefResolver, 
+  dataRef, 
+  createDataRefString, 
+  parseDataRef, 
+  isDataRefString,
+  serializeDataRefContext,
+  deserializeDataRefContext,
+  DATA_REF_PREFIX 
+} from './core/DataRefResolver';
+export type { DataRef, ResolvedDataRef, DataRefContext } from './core/DataRefResolver';

@@ -18,6 +18,7 @@
     "example:complete": "ts-node examples/complete-workflow-example.ts",
     "example:create": "ts-node examples/create-workflow.ts",
     "example:execute": "ts-node examples/execute-workflow.ts",
+    "example:dataref": "ts-node examples/data-ref-workflow.ts",
     "execute": "ts-node examples/execute-workflow.ts",
     "deploy-account": "ts-node scripts/deploy-account.ts"
   },

@@ -12,6 +12,7 @@ import { DittoWFRegistryAbi } from '../../utils/constants';
 import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 import { Address, concatHex } from 'viem';
 import { Policy } from '@zerodev/permissions/types';
+import { DATA_REF_PREFIX } from '../DataRefResolver';
 
 interface Permission {
     target: Address;
@@ -144,6 +145,10 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
                 if (arg === null) {
                     return null;
                 }
+                // Data references are resolved at runtime, so we can't restrict the value
+                if (typeof arg === 'string' && arg.startsWith(DATA_REF_PREFIX)) {
+                    return null;
+                }
                 const paramType = abiFunction?.inputs?.[index]?.type;
                 const isStringType = typeof paramType === 'string' && paramType.startsWith('string');
                 if (isStringType) {
@@ -172,7 +177,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
     const policies = [
         toCallPolicy({
             policyVersion: CallPolicyVersion.V0_0_4,
-            permissions: dedupedPermissions,
+            permissions: dedupedPermissions as any,
         }),
         buildSudoPolicy(),
     ];
