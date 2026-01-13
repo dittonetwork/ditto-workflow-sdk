@@ -199,12 +199,21 @@ export async function deserialize(
             jobs: validatedData.workflow.jobs.map((job): IJob => ({
                 id: job.id,
                 chainId: job.chainId,
-                steps: job.steps.map((step): IStep => ({
-                    target: step.target,
-                    abi: step.abi,
-                    args: step.args,
-                    value: step.value ? BigInt(step.value) : undefined,
-                })),
+                steps: job.steps.map((step): IStep => {
+                    const baseStep: any = {
+                        target: step.target,
+                        abi: step.abi,
+                        args: step.args,
+                        value: step.value ? BigInt(step.value) : undefined,
+                    };
+                    // Include WASM fields if present
+                    if ((step as any).type) baseStep.type = (step as any).type;
+                    if ((step as any).wasmHash) baseStep.wasmHash = (step as any).wasmHash;
+                    if ((step as any).wasmInput !== undefined) baseStep.wasmInput = (step as any).wasmInput;
+                    if ((step as any).wasmId) baseStep.wasmId = (step as any).wasmId;
+                    if ((step as any).wasmTimeoutMs) baseStep.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+                    return baseStep;
+                }),
                 session: job.session,
             })),
             count: validatedData.workflow.count,

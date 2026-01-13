@@ -12,37 +12,66 @@ export class Step implements IStep {
   public readonly abi: string;
   public readonly args: readonly any[];
   public readonly value?: bigint;
+  public readonly type?: 'contract' | 'wasm';
+  public readonly wasmHash?: string;
+  public readonly wasmInput?: any;
+  public readonly wasmId?: string;
+  public readonly wasmTimeoutMs?: number;
 
   constructor(params: {
     target: Address;
     abi: string;
     args: readonly any[];
     value?: bigint;
+    type?: 'contract' | 'wasm';
+    wasmHash?: string; // Required when type === 'wasm'
+    wasmInput?: any;
+    wasmId?: string;
+    wasmTimeoutMs?: number;
   }) {
-    if (!isAddress(params.target)) {
-      throw new Error(`Invalid target address: ${params.target}`);
-    }
+    this.type = params.type || 'contract';
 
-
-
-    if (params.abi !== "") {
-      let abiFunction: AbiFunction;
-      try {
-        abiFunction = parseAbiItem(`function ${params.abi}`) as AbiFunction;
-
-      } catch (error) {
-        throw new Error(`Invalid function signature: ${params.abi}`);
+    if (this.type === 'wasm') {
+      // WASM step validation
+      if (!params.wasmHash) {
+        throw new Error('WASM step requires wasmHash (WASM bytes are retrieved from MongoDB by hash)');
       }
-      if (params.args.length !== abiFunction.inputs.length) {
-        throw new Error('Argments length does not match ABI parameter count');
+      if (!params.wasmId) {
+        throw new Error('WASM step requires wasmId for result referencing');
       }
+      // For WASM steps, target/abi/args are not used
+      this.target = '0x0000000000000000000000000000000000000000';
+      this.abi = '';
+      this.args = [];
+      this.value = params.value || BigInt(0);
+      this.wasmHash = params.wasmHash;
+      this.wasmInput = params.wasmInput;
+      this.wasmId = params.wasmId;
+      this.wasmTimeoutMs = params.wasmTimeoutMs;
+    } else {
+      // Contract step validation (existing logic)
+      if (!isAddress(params.target)) {
+        throw new Error(`Invalid target address: ${params.target}`);
+      }
+
+      if (params.abi !== "") {
+        let abiFunction: AbiFunction;
+        try {
+          abiFunction = parseAbiItem(`function ${params.abi}`) as AbiFunction;
+
+        } catch (error) {
+          throw new Error(`Invalid function signature: ${params.abi}`);
+        }
+        if (params.args.length !== abiFunction.inputs.length) {
+          throw new Error('Argments length does not match ABI parameter count');
+        }
+      }
+
+      this.target = params.target;
+      this.abi = params.abi;
+      this.args = params.args;
+      this.value = params.value;
     }
-
-
-    this.target = params.target;
-    this.abi = params.abi;
-    this.args = params.args;
-    this.value = params.value;
   }
 
   getCalldata(): string {
@@ -82,11 +111,26 @@ export class Step implements IStep {
   }
 
   toJSON(): IStep {
-    return {
+    const base: any = {
       target: this.target,
       abi: this.abi,
       args: this.args,
-      value: this.value
+      value: this.value,
     };
+    if (this.type) {
+      base.type = this.type;
+    }
+    if (this.wasmHash) base.wasmHash = this.wasmHash;
+    if (this.wasmInput !== undefined) base.wasmInput = this.wasmInput;
+    if (this.wasmId) base.wasmId = this.wasmId;
+    if (this.wasmTimeoutMs) base.wasmTimeoutMs = this.wasmTimeoutMs;
+    return base;
+  }
+
+  /**
+   * Check if this is a WASM step
+   */
+  isWasmStep(): boolean {
+    return this.type === 'wasm';
   }
 }

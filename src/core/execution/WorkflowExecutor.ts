@@ -17,6 +17,7 @@ import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
 import { DataRefResolver, DataRefContext } from '../DataRefResolver';
+import { WasmRefResolver, WasmRefContext, WasmRef } from '../WasmRefResolver';
 
 /**
  * Execute a workflow with optional DataRef context for deterministic consensus.
@@ -48,6 +49,9 @@ export async function execute(
     logger: Logger = getDefaultLogger(),
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
 ): Promise<{
     success: boolean;
     results: Array<{ 
@@ -61,9 +65,13 @@ export async function execute(
         finish: string;
         /** DataRef context for this job - pass to operators */
         dataRefContext?: DataRefContext;
+        /** WASM ref context for this job - pass to operators */
+        wasmRefContext?: WasmRefContext;
     }>;
     /** Combined DataRef context from all jobs - pass to operators for consensus */
     dataRefContext?: DataRefContext;
+    /** Combined WASM ref context from all jobs - pass to operators for consensus */
+    wasmRefContext?: WasmRefContext;
 }> {
     workflow.typify();
     
@@ -87,9 +95,13 @@ export async function execute(
                     usePaymaster,
                     accessToken,
                     dataRefContext,
+                    wasmClient,
+                    database,
+                    wasmRefContext,
+                    logger,
                 );
                 
-                // Collect context for combining later
+                // Collect contexts for combining later
                 if (result.dataRefContext) {
                     allContexts.push(result.dataRefContext);
                 }
@@ -105,6 +117,7 @@ export async function execute(
                         start,
                         finish,
                         dataRefContext: result.dataRefContext,
+                        wasmRefContext: result.wasmRefContext,
                     };
                 }
 
@@ -120,6 +133,7 @@ export async function execute(
                     start,
                     finish,
                     dataRefContext: result.dataRefContext,
+                    wasmRefContext: result.wasmRefContext,
                 };
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
@@ -135,20 +149,35 @@ export async function execute(
         })
     );
     
-    // Combine all contexts into one
-    const combinedContext: DataRefContext = {
+    // Combine all DataRef contexts into one
+    const combinedDataRefContext: DataRefContext = {
         chainBlocks: {},
         resolvedRefs: [],
     };
     for (const ctx of allContexts) {
-        Object.assign(combinedContext.chainBlocks, ctx.chainBlocks);
-        combinedContext.resolvedRefs.push(...ctx.resolvedRefs);
+        Object.assign(combinedDataRefContext.chainBlocks, ctx.chainBlocks);
+        combinedDataRefContext.resolvedRefs.push(...ctx.resolvedRefs);
+    }
+
+    // Combine all WASM ref contexts into one
+    const allWasmContexts: WasmRefContext[] = [];
+    for (const r of results) {
+        if (r.wasmRefContext) {
+            allWasmContexts.push(r.wasmRefContext);
+        }
+    }
+    const combinedWasmRefContext: WasmRefContext = {
+        resolvedRefs: [],
+    };
+    for (const ctx of allWasmContexts) {
+        combinedWasmRefContext.resolvedRefs.push(...ctx.resolvedRefs);
     }
 
     return {
         success: results.every((r: any) => r.success),
         results,
-        dataRefContext: combinedContext.resolvedRefs.length > 0 ? combinedContext : undefined,
+        dataRefContext: combinedDataRefContext.resolvedRefs.length > 0 ? combinedDataRefContext : undefined,
+        wasmRefContext: combinedWasmRefContext.resolvedRefs.length > 0 ? combinedWasmRefContext : undefined,
     };
 }
 
@@ -176,6 +205,10 @@ export async function executeJob(
     usePaymaster: boolean = false,
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
+    logger: Logger = getDefaultLogger(), // Logger instance
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
@@ -184,6 +217,8 @@ export async function executeJob(
     error?: string,
     /** DataRef context with block numbers - pass to operators for deterministic replay */
     dataRefContext?: DataRefContext,
+    /** WASM ref context - pass to operators for deterministic replay */
+    wasmRefContext?: WasmRefContext,
 }> {
     const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[job.chainId]?.chain;
@@ -215,28 +250,102 @@ export async function executeJob(
         client: publicClient,
     });
 
-    // Resolve data references in step arguments before execution
+    // Step 1: Execute WASM steps first (they can make RPC calls)
+    // WASM results can then be referenced in subsequent contract steps
+    const wasmRefResolver = (wasmClient && database)
+      ? new WasmRefResolver(wasmClient, database, wasmRefContext, logger)
+      : null;
+    
+    const contractSteps: Step[] = [];
+    const wasmSteps: Step[] = [];
+    
+      // Separate WASM steps from contract steps
+    for (const step of job.steps) {
+      // Check if step is a WASM step (either via type field or isWasmStep method)
+      const isWasm = (step as any).type === 'wasm' || 
+                     ((step as any).isWasmStep && (step as any).isWasmStep()) ||
+                     ((step as any).wasmHash && (step as any).wasmId);
+      
+      if (isWasm) {
+        wasmSteps.push(step);
+      } else {
+        contractSteps.push(step);
+      }
+    }
+    
+    // Execute WASM steps and store results
+    if (wasmSteps.length > 0) {
+      if (!wasmRefResolver) {
+        throw new Error('WASM steps found but WASM client or database not available');
+      }
+      
+      for (const wasmStep of wasmSteps) {
+        const wasmStepAny = wasmStep as any;
+        const wasmRef: WasmRef = {
+          wasmHash: wasmStepAny.wasmHash!,
+          input: wasmStepAny.wasmInput || {},
+          id: wasmStepAny.wasmId!,
+          timeoutMs: wasmStepAny.wasmTimeoutMs,
+        };
+        
+        // If we have existing context (operator mode), skip execution
+        // Otherwise execute and store result
+        if (!wasmRefContext) {
+          await wasmRefResolver.executeWasmStep(wasmRef);
+        }
+      }
+    }
+    
+    // Step 2: Resolve data references in contract step arguments
+    // This can now include WASM references (if wasmRefResolver is available)
     // If dataRefContext provided, use it for deterministic replay (operator mode)
     // Otherwise create new context (leader mode)
     const dataRefResolver = new DataRefResolver(ipfsServiceUrl, accessToken, dataRefContext);
     const resolvedSteps: Step[] = [];
     
-    for (const step of job.steps) {
-      if (DataRefResolver.hasDataRefs(step.args)) {
-        const resolvedArgs = await dataRefResolver.resolveArgs(step.args);
-        resolvedSteps.push(new Step({
+    for (const step of contractSteps) {
+      // First resolve WASM references if any
+      let argsToResolve = step.args;
+      if (wasmRefResolver && WasmRefResolver.hasWasmRefs(step.args)) {
+        argsToResolve = await wasmRefResolver.resolveArgs(step.args);
+      }
+      
+      // Then resolve DataRef references
+      if (DataRefResolver.hasDataRefs(argsToResolve)) {
+        const resolvedArgs = await dataRefResolver.resolveArgs(argsToResolve);
+        const stepParams: any = {
           target: step.target as Address,
           abi: step.abi,
           args: resolvedArgs,
           value: step.value,
-        }));
+        };
+        // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
+        if ((step as any).type) stepParams.type = (step as any).type;
+        if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+        if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+        if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+        if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+        resolvedSteps.push(new Step(stepParams));
       } else {
-        resolvedSteps.push(step);
+        const stepParams: any = {
+          target: step.target as Address,
+          abi: step.abi,
+          args: argsToResolve,
+          value: step.value,
+        };
+        // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
+        if ((step as any).type) stepParams.type = (step as any).type;
+        if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+        if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+        if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+        if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+        resolvedSteps.push(new Step(stepParams));
       }
     }
     
-    // Get the context (with block numbers) for passing to operators
-    const resolvedContext = dataRefResolver.getContext();
+    // Get the contexts for passing to operators
+    const resolvedDataRefContext = dataRefResolver.getContext();
+    const resolvedWasmRefContext = wasmRefResolver?.getContext();
 
     const calls = resolvedSteps.map(step => ({
         to: step.target as `0x${string}`,
@@ -304,7 +413,8 @@ export async function executeJob(
                 },
                 userOp: userOperation,
                 signature: signature,
-                dataRefContext: resolvedContext,
+                dataRefContext: resolvedDataRefContext,
+                wasmRefContext: resolvedWasmRefContext,
             };
         }
         const userOpHash = await kernelClient.sendUserOperation({
@@ -315,13 +425,15 @@ export async function executeJob(
             result: result,
             userOp: userOperation,
             signature: signature,
-            dataRefContext: resolvedContext,
+            dataRefContext: resolvedDataRefContext,
+            wasmRefContext: resolvedWasmRefContext,
         };
     } catch (error) {
         return {
             userOp: userOperation,
             error: error instanceof Error ? error.message : 'Unknown error',
-            dataRefContext: resolvedContext,
+            dataRefContext: resolvedDataRefContext,
+            wasmRefContext: resolvedWasmRefContext,
         }
     }
 }
@@ -349,6 +461,9 @@ export async function executeFromIpfs(
     usePaymaster: boolean = false,
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
 ): Promise<{
     success: boolean;
     results: Array<{ 
@@ -361,10 +476,13 @@ export async function executeFromIpfs(
         start: string; 
         finish: string;
         dataRefContext?: DataRefContext;
+        wasmRefContext?: WasmRefContext;
     }>;
     markRunHash?: Hex;
     /** DataRef context - pass to operators for deterministic consensus */
     dataRefContext?: DataRefContext;
+    /** WASM ref context - pass to operators for deterministic consensus */
+    wasmRefContext?: WasmRefContext;
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
@@ -382,12 +500,16 @@ export async function executeFromIpfs(
         usePaymaster, 
         undefined, 
         accessToken,
-        dataRefContext
+        dataRefContext,
+        wasmClient,
+        database,
+        wasmRefContext
     );
 
     return {
         success: results.success,
         results: results.results,
         dataRefContext: results.dataRefContext,
+        wasmRefContext: results.wasmRefContext,
     };
 } 

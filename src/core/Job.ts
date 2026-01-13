@@ -16,12 +16,19 @@ export class Job implements IJob {
         return s;
       }
       // Create Step from IStep data
-      return new Step({
+      const stepParams: any = {
         target: s.target as Address,
         abi: s.abi,
         args: s.args,
-        value: s.value
-      });
+        value: s.value,
+      };
+      // Include WASM fields if present
+      if ((s as any).type) stepParams.type = (s as any).type;
+      if ((s as any).wasmHash) stepParams.wasmHash = (s as any).wasmHash;
+      if ((s as any).wasmInput !== undefined) stepParams.wasmInput = (s as any).wasmInput;
+      if ((s as any).wasmId) stepParams.wasmId = (s as any).wasmId;
+      if ((s as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (s as any).wasmTimeoutMs;
+      return new Step(stepParams);
     });
     this.session = session;
   }
@@ -30,12 +37,19 @@ export class Job implements IJob {
     if (step instanceof Step) {
       this.steps.push(step);
     } else {
-      this.steps.push(new Step({
+      const stepParams: any = {
         target: step.target as Address,
         abi: step.abi,
         args: step.args,
-        value: step.value
-      }));
+        value: step.value,
+      };
+      // Include WASM fields if present
+      if ((step as any).type) stepParams.type = (step as any).type;
+      if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+      if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+      if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+      if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+      this.steps.push(new Step(stepParams));
     }
     return this;
   }

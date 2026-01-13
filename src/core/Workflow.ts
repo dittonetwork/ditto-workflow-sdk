@@ -222,12 +222,19 @@ export class Workflow implements IWorkflow {
         const newArgs = Array.isArray(step.args)
           ? step.args.map((arg, idx) => coerce(arg, types[idx] ?? ''))
           : step.args;
-        job.steps[i] = new Step({
+        const stepParams: any = {
           target: step.target as any,
           abi: step.abi,
           args: newArgs as any[],
           value: step.value,
-        });
+        };
+        // Include WASM fields if present
+        if ((step as any).type) stepParams.type = (step as any).type;
+        if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+        if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+        if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+        if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+        job.steps[i] = new Step(stepParams);
       }
     }
 

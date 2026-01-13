@@ -41,3 +41,13 @@ export {
   DATA_REF_PREFIX 
 } from './core/DataRefResolver';
 export type { DataRef, ResolvedDataRef, DataRefContext } from './core/DataRefResolver';
+
+// WASM Reference exports - for executing WASM code and using results in workflow steps
+export {
+  WasmRefResolver,
+  createWasmRefString,
+  parseWasmRef,
+  isWasmRefString,
+  WASM_REF_PREFIX
+} from './core/WasmRefResolver';
+export type { WasmRef, ResolvedWasmRef, WasmRefContext } from './core/WasmRefResolver';
