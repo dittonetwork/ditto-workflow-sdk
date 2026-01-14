@@ -166,10 +166,14 @@ export class WasmRefResolver {
     // Handle WASM reference strings
     if (isWasmRefString(arg)) {
       const wasmId = parseWasmRef(arg);
+      this.logger.debug(`Resolving WASM reference: ${wasmId}`);
+      this.logger.debug(`Available WASM refs: ${this.context.resolvedRefs.map(r => r.ref.id).join(', ')}`);
       const resolved = this.context.resolvedRefs.find(r => r.ref.id === wasmId);
       if (!resolved) {
-        throw new Error(`WASM reference not found: ${wasmId}`);
+        const availableIds = this.context.resolvedRefs.map(r => r.ref.id).join(', ') || 'none';
+        throw new Error(`WASM reference not found: ${wasmId}. Available WASM step IDs: [${availableIds}]`);
       }
+      this.logger.debug(`WASM reference ${wasmId} resolved successfully`);
       return resolved.result;
     }
     

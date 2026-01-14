@@ -284,17 +284,38 @@ export async function executeJob(
       } else {
         for (const wasmStep of wasmSteps) {
           const wasmStepAny = wasmStep as any;
+          const wasmId = wasmStepAny.wasmId;
+          if (!wasmId) {
+            logger.error(`WASM step missing wasmId - cannot execute or reference this step`);
+            throw new Error(`WASM step is missing required wasmId field`);
+          }
+          
           const wasmRef: WasmRef = {
             wasmHash: wasmStepAny.wasmHash!,
             input: wasmStepAny.wasmInput || {},
-            id: wasmStepAny.wasmId!,
+            id: wasmId,
             timeoutMs: wasmStepAny.wasmTimeoutMs,
           };
+          
+          logger.info(`Preparing to execute WASM step with wasmId: ${wasmId}, hash: ${wasmRef.wasmHash}`);
           
           // If we have existing context (operator mode), skip execution
           // Otherwise execute and store result
           if (!wasmRefContext) {
-            await wasmRefResolver.executeWasmStep(wasmRef);
+            try {
+              await wasmRefResolver.executeWasmStep(wasmRef);
+              logger.info(`WASM step ${wasmId} executed successfully and result stored`);
+            } catch (error) {
+              logger.error(`WASM step ${wasmId} execution failed:`, error);
+              throw error; // Re-throw to stop execution
+            }
+          } else {
+            logger.info(`Using existing WASM context for step ${wasmId} (operator mode)`);
+            // Verify the context has this WASM result
+            const existingResult = wasmRefContext.resolvedRefs.find(r => r.ref.id === wasmId);
+            if (!existingResult) {
+              throw new Error(`WASM reference ${wasmId} not found in provided context (operator mode)`);
+            }
           }
         }
       }
