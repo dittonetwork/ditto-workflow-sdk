@@ -2,6 +2,7 @@ import { Workflow as IWorkflow, Job as IJob, Trigger, OnchainConditionOperator }
 import { Job } from './Job';
 import { Account, AbiFunction, parseAbiItem } from 'viem';
 import { Step } from './Step';
+import { isWasmRefString } from './WasmRefResolver';
 
 export class Workflow implements IWorkflow {
   public validAfter?: Date;
@@ -107,15 +108,19 @@ export class Workflow implements IWorkflow {
       if (typeof val !== 'string') return val;
       // Skip coercion for data references - they will be resolved at execution time
       if (val.startsWith(DATA_REF_PREFIX)) return val;
+      // Skip coercion for WASM references - they will be resolved at execution time
+      if (isWasmRefString(val)) return val;
+      // At this point, val is definitely a string (not a WASM ref, not a data ref)
+      const valStr: string = val;
       const t = type.toLowerCase();
       if (t === 'bool') {
-        const v = val.trim().toLowerCase();
+        const v = valStr.trim().toLowerCase();
         if (v === 'true') return true;
         if (v === 'false') return false;
         return Boolean(v);
       }
       if (t.startsWith('uint') || t.startsWith('int')) {
-        return BigInt(val);
+        return BigInt(valStr);
       }
       if (t === 'string' || t === 'address' || t.startsWith('bytes')) {
         return val;
@@ -218,6 +223,26 @@ export class Workflow implements IWorkflow {
     for (const job of this.jobs) {
       for (let i = 0; i < job.steps.length; i++) {
         const step = job.steps[i] as Step;
+        const stepType = (step as any).type;
+        
+        // Skip typify for WASM steps - they don't have ABI arguments to coerce
+        if (stepType === 'wasm') {
+          const stepParams: any = {
+            target: step.target as any,
+            abi: step.abi,
+            args: step.args as any[],
+            value: step.value,
+            type: stepType,
+          };
+          if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+          if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+          if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+          if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+          job.steps[i] = new Step(stepParams);
+          continue;
+        }
+        
+        // For contract steps, coerce arguments but skip WASM references
         const types = getInputTypes(step.abi);
         const newArgs = Array.isArray(step.args)
           ? step.args.map((arg, idx) => coerce(arg, types[idx] ?? ''))
@@ -228,8 +253,8 @@ export class Workflow implements IWorkflow {
           args: newArgs as any[],
           value: step.value,
         };
-        // Include WASM fields if present
-        if ((step as any).type) stepParams.type = (step as any).type;
+        // Include WASM fields if present (shouldn't be for contract steps, but preserve them)
+        if (stepType) stepParams.type = stepType;
         if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
         if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
         if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;

@@ -276,22 +276,26 @@ export async function executeJob(
     // Execute WASM steps and store results
     if (wasmSteps.length > 0) {
       if (!wasmRefResolver) {
-        throw new Error('WASM steps found but WASM client or database not available');
-      }
-      
-      for (const wasmStep of wasmSteps) {
-        const wasmStepAny = wasmStep as any;
-        const wasmRef: WasmRef = {
-          wasmHash: wasmStepAny.wasmHash!,
-          input: wasmStepAny.wasmInput || {},
-          id: wasmStepAny.wasmId!,
-          timeoutMs: wasmStepAny.wasmTimeoutMs,
-        };
-        
-        // If we have existing context (operator mode), skip execution
-        // Otherwise execute and store result
-        if (!wasmRefContext) {
-          await wasmRefResolver.executeWasmStep(wasmRef);
+        // Owner not whitelisted or WASM client/database not available
+        // Skip WASM steps and log warning
+        logger.info(`Skipping ${wasmSteps.length} WASM step(s) - owner not whitelisted or WASM client/database not available`);
+        // WASM steps are skipped, but contract steps can still execute
+        // Note: Contract steps referencing WASM results will fail during resolution
+      } else {
+        for (const wasmStep of wasmSteps) {
+          const wasmStepAny = wasmStep as any;
+          const wasmRef: WasmRef = {
+            wasmHash: wasmStepAny.wasmHash!,
+            input: wasmStepAny.wasmInput || {},
+            id: wasmStepAny.wasmId!,
+            timeoutMs: wasmStepAny.wasmTimeoutMs,
+          };
+          
+          // If we have existing context (operator mode), skip execution
+          // Otherwise execute and store result
+          if (!wasmRefContext) {
+            await wasmRefResolver.executeWasmStep(wasmRef);
+          }
         }
       }
     }
@@ -306,7 +310,13 @@ export async function executeJob(
     for (const step of contractSteps) {
       // First resolve WASM references if any
       let argsToResolve = step.args;
-      if (wasmRefResolver && WasmRefResolver.hasWasmRefs(step.args)) {
+      if (WasmRefResolver.hasWasmRefs(step.args)) {
+        if (!wasmRefResolver) {
+          throw new Error(
+            `Contract step references WASM result but owner is not whitelisted for WASM execution. ` +
+            `WASM steps were skipped. Please whitelist the workflow owner or remove WASM references from contract steps.`
+          );
+        }
         argsToResolve = await wasmRefResolver.resolveArgs(step.args);
       }
       
