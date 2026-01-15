@@ -113,12 +113,21 @@ export async function serialize(
         jobs.push({
             id: job.id,
             chainId: job.chainId,
-            steps: job.steps.map(step => ({
-                target: step.target,
-                abi: step.abi,
-                args: step.args.map(arg => arg.toString()),
-                value: (step.value || BigInt(0)).toString(),
-            })),
+            steps: job.steps.map(step => {
+                const stepJson = step.toJSON();
+                // Convert args and value to strings for serialization
+                return {
+                    ...stepJson,
+                    args: stepJson.args.map((arg: any) => {
+                        // Handle WASM references - keep them as strings
+                        if (typeof arg === 'string' && (arg.startsWith('$wasm:') || arg.startsWith('$ref:'))) {
+                            return arg;
+                        }
+                        return arg.toString();
+                    }),
+                    value: (stepJson.value || BigInt(0)).toString(),
+                };
+            }),
             session: session,
         });
     }
