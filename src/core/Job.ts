@@ -20,9 +20,9 @@ export class Job implements IJob {
         target: s.target as Address,
         abi: s.abi,
         args: s.args,
-        value: s.value,
+        value: s.value ? (typeof s.value === 'bigint' ? s.value : BigInt(s.value)) : undefined,
       };
-      // Include WASM fields if present
+      // Include WASM fields if present - MUST include type for WASM steps
       if ((s as any).type) stepParams.type = (s as any).type;
       if ((s as any).wasmHash) stepParams.wasmHash = (s as any).wasmHash;
       if ((s as any).wasmInput !== undefined) stepParams.wasmInput = (s as any).wasmInput;

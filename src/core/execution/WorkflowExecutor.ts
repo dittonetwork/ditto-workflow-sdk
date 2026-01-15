@@ -259,19 +259,32 @@ export async function executeJob(
     const contractSteps: Step[] = [];
     const wasmSteps: Step[] = [];
     
-      // Separate WASM steps from contract steps
-    for (const step of job.steps) {
+    logger.info(`Processing ${job.steps.length} steps in job ${job.id}`);
+    
+    // Separate WASM steps from contract steps
+    for (let i = 0; i < job.steps.length; i++) {
+      const step = job.steps[i];
+      const stepAny = step as any;
+      
       // Check if step is a WASM step (either via type field or isWasmStep method)
-      const isWasm = (step as any).type === 'wasm' || 
-                     ((step as any).isWasmStep && (step as any).isWasmStep()) ||
-                     ((step as any).wasmHash && (step as any).wasmId);
+      const hasType = stepAny.type === 'wasm';
+      const hasIsWasmMethod = stepAny.isWasmStep && typeof stepAny.isWasmStep === 'function';
+      const hasWasmFields = stepAny.wasmHash && stepAny.wasmId;
+      
+      const isWasm = hasType || (hasIsWasmMethod && stepAny.isWasmStep()) || hasWasmFields;
+      
+      logger.info(`Step ${i}: type=${stepAny.type}, wasmHash=${stepAny.wasmHash}, wasmId=${stepAny.wasmId}, isWasm=${isWasm} (hasType=${hasType}, hasMethod=${hasIsWasmMethod}, hasFields=${hasWasmFields})`);
       
       if (isWasm) {
         wasmSteps.push(step);
+        logger.info(`  → Classified as WASM step`);
       } else {
         contractSteps.push(step);
+        logger.info(`  → Classified as contract step`);
       }
     }
+    
+    logger.info(`Found ${wasmSteps.length} WASM steps and ${contractSteps.length} contract steps`);
     
     // Execute WASM steps and store results
     if (wasmSteps.length > 0) {
