@@ -223,16 +223,20 @@ export class Workflow implements IWorkflow {
     for (const job of this.jobs) {
       for (let i = 0; i < job.steps.length; i++) {
         const step = job.steps[i] as Step;
-        const stepType = (step as any).type;
+        const stepType = step.type || (step as any).type;
         
         // Skip typify for WASM steps - they don't have ABI arguments to coerce
-        if (stepType === 'wasm') {
+        // Also check for WASM fields as fallback detection (in case type was lost)
+        const hasWasmFields = (step as any).wasmHash && (step as any).wasmId;
+        const isWasmStep = stepType === 'wasm' || hasWasmFields;
+        
+        if (isWasmStep) {
           const stepParams: any = {
             target: step.target as any,
             abi: step.abi,
             args: step.args as any[],
             value: step.value,
-            type: stepType,
+            type: 'wasm', // Always set to 'wasm' if WASM fields are present
           };
           if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
           if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
