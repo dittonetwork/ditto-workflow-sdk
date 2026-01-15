@@ -175,16 +175,34 @@ export class WasmRefResolver {
       }
       this.logger.info(`WASM reference ${wasmId} resolved successfully`);
       
-      // Extract value from WASM result object if it exists
-      // WASM modules typically return { value: ..., ... } format
+      // Get the WASM result
       const result = resolved.result;
       const resultKeys = result && typeof result === 'object' ? Object.keys(result).join(', ') : 'N/A';
       this.logger.info(`WASM result type: ${typeof result}, isArray: ${Array.isArray(result)}, keys: [${resultKeys}], raw: ${JSON.stringify(result).substring(0, 200)}`);
       
-      if (result && typeof result === 'object' && !Array.isArray(result) && 'value' in result) {
-        const extractedValue = result.value;
-        this.logger.info(`Extracting 'value' field from WASM result: type=${typeof extractedValue}, value=${String(extractedValue).substring(0, 100)}`);
-        return extractedValue;
+      // Check for WASM execution error (ok: false format)
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+        // Handle error format: { ok: false, result: { error: "...", ... } }
+        if ('ok' in result && result.ok === false) {
+          const errorMsg = result.result?.error || result.error || 'Unknown WASM error';
+          this.logger.error(`WASM step ${wasmId} returned error: ${errorMsg}`);
+          throw new Error(`WASM execution error for ${wasmId}: ${errorMsg}`);
+        }
+        
+        // Handle success format: { ok: true, result: { value: "...", ... } } or { value: "...", ... }
+        // Check for value in nested result object first
+        if ('result' in result && result.result && typeof result.result === 'object' && 'value' in result.result) {
+          const extractedValue = result.result.value;
+          this.logger.info(`Extracting 'value' from nested result: type=${typeof extractedValue}, value=${String(extractedValue).substring(0, 100)}`);
+          return extractedValue;
+        }
+        
+        // Check for value at top level
+        if ('value' in result) {
+          const extractedValue = result.value;
+          this.logger.info(`Extracting 'value' field from WASM result: type=${typeof extractedValue}, value=${String(extractedValue).substring(0, 100)}`);
+          return extractedValue;
+        }
       }
       
       // If result is already a primitive or doesn't have 'value' field, return as-is
