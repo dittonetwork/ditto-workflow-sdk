@@ -29,7 +29,9 @@ export class Step implements IStep {
     wasmId?: string;
     wasmTimeoutMs?: number;
   }) {
-    this.type = params.type || 'contract';
+    // Auto-detect WASM step if wasmHash and wasmId are present, even if type is not set
+    const hasWasmFields = params.wasmHash && params.wasmId;
+    this.type = params.type || (hasWasmFields ? 'wasm' : 'contract');
 
     if (this.type === 'wasm') {
       // WASM step validation
@@ -49,6 +51,11 @@ export class Step implements IStep {
       this.wasmId = params.wasmId;
       this.wasmTimeoutMs = params.wasmTimeoutMs;
     } else {
+      // For contract steps, also store WASM fields if provided (for deserialization compatibility)
+      if (params.wasmHash) this.wasmHash = params.wasmHash;
+      if (params.wasmInput !== undefined) this.wasmInput = params.wasmInput;
+      if (params.wasmId) this.wasmId = params.wasmId;
+      if (params.wasmTimeoutMs) this.wasmTimeoutMs = params.wasmTimeoutMs;
       // Contract step validation (existing logic)
       if (!isAddress(params.target)) {
         throw new Error(`Invalid target address: ${params.target}`);
