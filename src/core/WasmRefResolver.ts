@@ -178,12 +178,16 @@ export class WasmRefResolver {
       // Extract value from WASM result object if it exists
       // WASM modules typically return { value: ..., ... } format
       const result = resolved.result;
+      this.logger.debug(`WASM result type: ${typeof result}, isArray: ${Array.isArray(result)}, keys: ${result && typeof result === 'object' ? Object.keys(result).join(', ') : 'N/A'}`);
+      
       if (result && typeof result === 'object' && !Array.isArray(result) && 'value' in result) {
-        this.logger.debug(`Extracting 'value' field from WASM result object`);
-        return result.value;
+        const extractedValue = result.value;
+        this.logger.debug(`Extracting 'value' field from WASM result object: ${typeof extractedValue} = ${extractedValue}`);
+        return extractedValue;
       }
       
       // If result is already a primitive or doesn't have 'value' field, return as-is
+      this.logger.debug(`Returning WASM result as-is: ${typeof result}`);
       return result;
     }
     
