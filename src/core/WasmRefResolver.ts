@@ -174,7 +174,17 @@ export class WasmRefResolver {
         throw new Error(`WASM reference not found: ${wasmId}. Available WASM step IDs: [${availableIds}]`);
       }
       this.logger.debug(`WASM reference ${wasmId} resolved successfully`);
-      return resolved.result;
+      
+      // Extract value from WASM result object if it exists
+      // WASM modules typically return { value: ..., ... } format
+      const result = resolved.result;
+      if (result && typeof result === 'object' && !Array.isArray(result) && 'value' in result) {
+        this.logger.debug(`Extracting 'value' field from WASM result object`);
+        return result.value;
+      }
+      
+      // If result is already a primitive or doesn't have 'value' field, return as-is
+      return result;
     }
     
     // Handle nested arrays
