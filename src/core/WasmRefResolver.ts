@@ -173,21 +173,22 @@ export class WasmRefResolver {
         const availableIds = this.context.resolvedRefs.map(r => r.ref.id).join(', ') || 'none';
         throw new Error(`WASM reference not found: ${wasmId}. Available WASM step IDs: [${availableIds}]`);
       }
-      this.logger.debug(`WASM reference ${wasmId} resolved successfully`);
+      this.logger.info(`WASM reference ${wasmId} resolved successfully`);
       
       // Extract value from WASM result object if it exists
       // WASM modules typically return { value: ..., ... } format
       const result = resolved.result;
-      this.logger.debug(`WASM result type: ${typeof result}, isArray: ${Array.isArray(result)}, keys: ${result && typeof result === 'object' ? Object.keys(result).join(', ') : 'N/A'}`);
+      const resultKeys = result && typeof result === 'object' ? Object.keys(result).join(', ') : 'N/A';
+      this.logger.info(`WASM result type: ${typeof result}, isArray: ${Array.isArray(result)}, keys: [${resultKeys}], raw: ${JSON.stringify(result).substring(0, 200)}`);
       
       if (result && typeof result === 'object' && !Array.isArray(result) && 'value' in result) {
         const extractedValue = result.value;
-        this.logger.debug(`Extracting 'value' field from WASM result object: ${typeof extractedValue} = ${extractedValue}`);
+        this.logger.info(`Extracting 'value' field from WASM result: type=${typeof extractedValue}, value=${String(extractedValue).substring(0, 100)}`);
         return extractedValue;
       }
       
       // If result is already a primitive or doesn't have 'value' field, return as-is
-      this.logger.debug(`Returning WASM result as-is: ${typeof result}`);
+      this.logger.info(`Returning WASM result as-is: ${typeof result}`);
       return result;
     }
     
