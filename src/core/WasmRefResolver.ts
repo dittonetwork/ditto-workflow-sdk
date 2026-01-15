@@ -217,3 +217,30 @@ export class WasmRefResolver {
     return args.some(check);
   }
 }
+
+/**
+ * Serialize WasmRefContext for transmission (handles BigInt and complex objects)
+ */
+export function serializeWasmRefContext(ctx: WasmRefContext): string {
+  return JSON.stringify({
+    resolvedRefs: ctx.resolvedRefs.map(r => ({
+      ref: r.ref,
+      result: r.result, // Keep result as-is (JSON serializable)
+      durationMs: r.durationMs,
+    })),
+  });
+}
+
+/**
+ * Deserialize WasmRefContext from transmission format
+ */
+export function deserializeWasmRefContext(data: string): WasmRefContext {
+  const parsed = JSON.parse(data);
+  return {
+    resolvedRefs: parsed.resolvedRefs.map((r: any) => ({
+      ref: r.ref,
+      result: r.result,
+      durationMs: r.durationMs,
+    })),
+  };
+}

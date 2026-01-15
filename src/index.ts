@@ -48,6 +48,8 @@ export {
   createWasmRefString,
   parseWasmRef,
   isWasmRefString,
+  serializeWasmRefContext,
+  deserializeWasmRefContext,
   WASM_REF_PREFIX
 } from './core/WasmRefResolver';
 export type { WasmRef, ResolvedWasmRef, WasmRefContext } from './core/WasmRefResolver';
