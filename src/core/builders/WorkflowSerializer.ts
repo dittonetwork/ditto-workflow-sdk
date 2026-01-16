@@ -209,11 +209,21 @@ export async function deserialize(
                 id: job.id,
                 chainId: job.chainId,
                 steps: job.steps.map((step): IStep => {
+                    // Handle value: preserve WASM/DataRef references as strings
+                    let stepValue: bigint | string | undefined;
+                    if (step.value) {
+                        const valueStr = String(step.value);
+                        if (valueStr.startsWith('$wasm:') || valueStr.startsWith('$data:')) {
+                            stepValue = valueStr; // Preserve reference string
+                        } else {
+                            stepValue = BigInt(step.value);
+                        }
+                    }
                     const baseStep: any = {
                         target: step.target,
                         abi: step.abi,
                         args: step.args,
-                        value: step.value ? BigInt(step.value) : undefined,
+                        value: stepValue,
                     };
                     // Include WASM fields if present
                     if ((step as any).type) baseStep.type = (step as any).type;
