@@ -252,7 +252,11 @@ export async function executeJob(
 
     // Step 1: Execute WASM steps first (they can make RPC calls)
     // WASM results can then be referenced in subsequent contract steps
-    const wasmRefResolver = (wasmClient && database)
+    // In operator mode (wasmRefContext provided), we can create resolver without wasmClient
+    // because we're only resolving references from context, not executing WASM
+    const wasmRefResolver = (wasmRefContext && database)
+      ? new WasmRefResolver(wasmClient || null, database, wasmRefContext, logger) // wasmClient can be null in operator mode
+      : (wasmClient && database)
       ? new WasmRefResolver(wasmClient, database, wasmRefContext, logger)
       : null;
     
