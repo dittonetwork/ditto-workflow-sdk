@@ -48,6 +48,13 @@ export function isWasmRefString(value: unknown): value is string {
 }
 
 /**
+ * Check if a value is a DataRef string
+ */
+export function isDataRefString(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('$data:');
+}
+
+/**
  * Parse a WASM reference from its string representation
  */
 export function parseWasmRef(value: string): string {

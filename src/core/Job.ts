@@ -1,6 +1,30 @@
 import { Job as IJob, Step as IStep } from './types';
 import { Step } from './Step';
 import { Address } from 'viem';
+import { isWasmRefString, isDataRefString } from './WasmRefResolver';
+
+// Helper to safely convert value to BigInt, preserving WASM/DataRef references
+function safeValueToBigInt(value: unknown): bigint | string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'string') {
+    const strValue = value as string;
+    // Preserve WASM and DataRef references as strings
+    if (isWasmRefString(strValue) || isDataRefString(strValue)) {
+      return strValue;
+    }
+    // Convert numeric strings to BigInt
+    try {
+      return BigInt(strValue);
+    } catch {
+      // If conversion fails, return as string (might be a reference)
+      return strValue;
+    }
+  }
+  // For numbers, convert to BigInt
+  if (typeof value === 'number') return BigInt(value);
+  return undefined;
+}
 
 export class Job implements IJob {
   public readonly steps: Step[] = [];
@@ -20,7 +44,7 @@ export class Job implements IJob {
         target: s.target as Address,
         abi: s.abi,
         args: s.args,
-        value: s.value ? (typeof s.value === 'bigint' ? s.value : BigInt(s.value)) : undefined,
+        value: safeValueToBigInt(s.value),
       };
       // Include WASM fields if present - MUST include type for WASM steps
       if ((s as any).type) stepParams.type = (s as any).type;

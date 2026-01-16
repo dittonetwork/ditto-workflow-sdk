@@ -342,8 +342,39 @@ export async function executeJob(
     const resolvedSteps: Step[] = [];
     
     for (const step of contractSteps) {
-      // First resolve WASM references if any
+      // First resolve WASM references in args if any
       let argsToResolve = step.args;
+      let resolvedValue: bigint = BigInt(0);
+      
+      // Check if step.value is a WASM reference
+      if (step.value !== undefined) {
+        if (typeof step.value === 'string' && step.value.startsWith('$wasm:')) {
+          if (!wasmRefResolver) {
+            throw new Error(
+              `Contract step value references WASM result but owner is not whitelisted for WASM execution. ` +
+              `WASM steps were skipped. Please whitelist the workflow owner or remove WASM references.`
+            );
+          }
+          const resolved = await wasmRefResolver.resolveArg(step.value);
+          // Convert resolved value to bigint
+          if (typeof resolved === 'bigint') {
+            resolvedValue = resolved;
+          } else if (typeof resolved === 'string') {
+            // Parse hex string or decimal string
+            resolvedValue = resolved.startsWith('0x') ? BigInt(resolved) : BigInt(resolved);
+          } else if (typeof resolved === 'number') {
+            resolvedValue = BigInt(resolved);
+          } else {
+            throw new Error(`WASM reference for value must resolve to a number, got: ${typeof resolved}`);
+          }
+        } else if (typeof step.value === 'bigint') {
+          resolvedValue = step.value;
+        } else if (typeof step.value === 'string') {
+          resolvedValue = BigInt(step.value);
+        }
+      }
+      
+      // Resolve WASM references in args
       if (WasmRefResolver.hasWasmRefs(step.args)) {
         if (!wasmRefResolver) {
           throw new Error(
@@ -355,36 +386,24 @@ export async function executeJob(
       }
       
       // Then resolve DataRef references
+      let resolvedArgs = argsToResolve;
       if (DataRefResolver.hasDataRefs(argsToResolve)) {
-        const resolvedArgs = await dataRefResolver.resolveArgs(argsToResolve);
-        const stepParams: any = {
-          target: step.target as Address,
-          abi: step.abi,
-          args: resolvedArgs,
-          value: step.value,
-        };
-        // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
-        if ((step as any).type) stepParams.type = (step as any).type;
-        if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
-        if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
-        if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
-        if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
-        resolvedSteps.push(new Step(stepParams));
-      } else {
-        const stepParams: any = {
-          target: step.target as Address,
-          abi: step.abi,
-          args: argsToResolve,
-          value: step.value,
-        };
-        // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
-        if ((step as any).type) stepParams.type = (step as any).type;
-        if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
-        if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
-        if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
-        if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
-        resolvedSteps.push(new Step(stepParams));
+        resolvedArgs = await dataRefResolver.resolveArgs(argsToResolve);
       }
+      
+      const stepParams: any = {
+        target: step.target as Address,
+        abi: step.abi,
+        args: resolvedArgs,
+        value: resolvedValue,
+      };
+      // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
+      if ((step as any).type) stepParams.type = (step as any).type;
+      if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+      if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+      if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+      if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+      resolvedSteps.push(new Step(stepParams));
     }
     
     // Get the contexts for passing to operators
@@ -393,7 +412,8 @@ export async function executeJob(
 
     const calls = resolvedSteps.map(step => ({
         to: step.target as `0x${string}`,
-        value: step.value ?? BigInt(0),
+        // After resolution, value should always be bigint (references are resolved above)
+        value: (typeof step.value === 'bigint' ? step.value : BigInt(0)) as bigint,
         data: step.getCalldata() as `0x${string}`,
     }));
     calls.push({

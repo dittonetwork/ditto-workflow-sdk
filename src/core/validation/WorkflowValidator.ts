@@ -135,7 +135,8 @@ export class WorkflowValidator {
                     errors.push(`invalid target address in job ${job.id}`)
                     break
                 }
-                if (step.value !== undefined && step.value < BigInt(0)) {
+                // Only check for negative value if it's a bigint (not a WASM/DataRef reference string)
+                if (step.value !== undefined && typeof step.value === 'bigint' && step.value < BigInt(0)) {
                     statuses.add(ValidatorStatus.InvalidStep)
                     errors.push(`negative value in step of job ${job.id}`)
                     break

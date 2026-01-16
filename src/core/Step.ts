@@ -11,7 +11,7 @@ export class Step implements IStep {
   public readonly target: string;
   public readonly abi: string;
   public readonly args: readonly any[];
-  public readonly value?: bigint;
+  public readonly value?: bigint | string; // Can be bigint or WASM/DataRef reference string
   public readonly type?: 'contract' | 'wasm';
   public readonly wasmHash?: string;
   public readonly wasmInput?: any;
@@ -22,7 +22,7 @@ export class Step implements IStep {
     target: Address;
     abi: string;
     args: readonly any[];
-    value?: bigint;
+    value?: bigint | string; // Can be bigint or WASM/DataRef reference string
     type?: 'contract' | 'wasm';
     wasmHash?: string; // Required when type === 'wasm'
     wasmInput?: any;

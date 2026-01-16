@@ -136,9 +136,12 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
     const permissions: Permission[] = job.steps.map(step => {
         const abiFunctions = step.getAbi();
         const abiFunction = abiFunctions[0];
+        // If value is a WASM/DataRef reference (string), use 0 for policy building
+        // The actual value will be resolved at execution time
+        const valueLimit = typeof step.value === 'bigint' ? step.value : BigInt(0);
         return {
             target: step.target as `0x${string}`,
-            valueLimit: step.value ?? BigInt(0),
+            valueLimit,
             abi: abiFunctions,
             functionName: step.getFunctionName(),
             args: step.args.map((arg, index) => {
