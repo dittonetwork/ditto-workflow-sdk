@@ -312,9 +312,10 @@ export async function executeJob(
           
           logger.info(`Preparing to execute WASM step with wasmId: ${wasmId}, hash: ${wasmRef.wasmHash}`);
           
-          // If we have existing context (operator mode), skip execution
-          // Otherwise execute and store result
+          // If we have existing context (operator mode), skip execution and use leader's results
+          // Otherwise execute and store result (leader mode)
           if (!wasmRefContext) {
+            // Leader mode: Execute WASM step
             try {
               await wasmRefResolver.executeWasmStep(wasmRef);
               logger.info(`WASM step ${wasmId} executed successfully and result stored`);
@@ -323,12 +324,14 @@ export async function executeJob(
               throw error; // Re-throw to stop execution
             }
           } else {
-            logger.info(`Using existing WASM context for step ${wasmId} (operator mode)`);
-            // Verify the context has this WASM result
+            // Operator mode: Use leader's WASM results, do not execute
+            logger.info(`Operator mode: Using leader's WASM result for step ${wasmId} (skipping execution)`);
+            // Verify the context has this WASM result from leader
             const existingResult = wasmRefContext.resolvedRefs.find(r => r.ref.id === wasmId);
             if (!existingResult) {
-              throw new Error(`WASM reference ${wasmId} not found in provided context (operator mode)`);
+              throw new Error(`WASM reference ${wasmId} not found in provided context from leader. Available: [${wasmRefContext.resolvedRefs.map(r => r.ref.id).join(', ')}]`);
             }
+            logger.info(`WASM step ${wasmId} result verified from leader's context - will be used for contract step references`);
           }
         }
       }
