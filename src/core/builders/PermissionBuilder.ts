@@ -133,12 +133,22 @@ export function buildSudoPolicy(): Policy {
 
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
 
+    // Max uint256 for unlimited value transfers (when using WASM/DataRef references)
+    const MAX_VALUE_LIMIT = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+    
     const permissions: Permission[] = job.steps.map(step => {
         const abiFunctions = step.getAbi();
         const abiFunction = abiFunctions[0];
-        // If value is a WASM/DataRef reference (string), use 0 for policy building
-        // The actual value will be resolved at execution time
-        const valueLimit = typeof step.value === 'bigint' ? step.value : BigInt(0);
+        // If value is a WASM/DataRef reference (string), use max value limit
+        // since the actual value will be resolved at execution time
+        let valueLimit: bigint;
+        if (typeof step.value === 'string' && (step.value.startsWith('$wasm:') || step.value.startsWith('$data:'))) {
+            valueLimit = MAX_VALUE_LIMIT; // Allow any value for dynamic references
+        } else if (typeof step.value === 'bigint') {
+            valueLimit = step.value;
+        } else {
+            valueLimit = BigInt(0);
+        }
         return {
             target: step.target as `0x${string}`,
             valueLimit,
