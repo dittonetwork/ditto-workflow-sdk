@@ -121,9 +121,10 @@ export class WasmRefResolver {
       throw new Error('Database not available for WASM module lookup');
     }
 
-    this.logger.info(`Executing WASM step: ${ref.id} (hash: ${ref.wasmHash})`);
+    this.logger.info(`Executing WASM step: ${ref.id} (wasm_id: ${ref.wasmHash})`);
 
-    // Fetch WASM bytes from MongoDB by hash
+    // Fetch WASM bytes from MongoDB by wasm_id (bytes32 from contract)
+    // Note: ref.wasmHash is actually the wasm_id (bytes32) used to look up in MongoDB
     const wasmBytes = await this.database.getWasmModule(ref.wasmHash);
     if (!wasmBytes) {
       throw new Error(`WASM module not found in database: ${ref.wasmHash}. Indexer may need to fetch it from IPFS.`);
@@ -135,9 +136,11 @@ export class WasmRefResolver {
     const startTime = Date.now();
     
     try {
+      // Don't pass wasmHash to avoid hash validation check
+      // The wasm_id (ref.wasmHash) is keccak256 of human-readable string, not SHA256 of bytes
       const wasmResult = await this.wasmClient.run({
         jobId: `wasm-step-${ref.id}-${Date.now()}`,
-        wasmHash: ref.wasmHash,
+        wasmHash: undefined, // No hash check - wasm_id is keccak256, not SHA256
         wasmB64: wasmB64,
         input: ref.input,
         timeoutMs: ref.timeoutMs || 2000,
