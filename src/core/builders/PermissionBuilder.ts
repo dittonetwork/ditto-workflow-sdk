@@ -13,6 +13,7 @@ import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 import { Address, concatHex } from 'viem';
 import { Policy } from '@zerodev/permissions/types';
 import { DATA_REF_PREFIX } from '../DataRefResolver';
+import { WASM_REF_PREFIX } from '../WasmRefResolver';
 
 interface Permission {
     target: Address;
@@ -158,8 +159,8 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
                 if (arg === null) {
                     return null;
                 }
-                // Data references are resolved at runtime, so we can't restrict the value
-                if (typeof arg === 'string' && arg.startsWith(DATA_REF_PREFIX)) {
+                // Data and WASM references are resolved at runtime, so we can't restrict the value
+                if (typeof arg === 'string' && (arg.startsWith(DATA_REF_PREFIX) || arg.startsWith(WASM_REF_PREFIX))) {
                     return null;
                 }
                 const paramType = abiFunction?.inputs?.[index]?.type;
