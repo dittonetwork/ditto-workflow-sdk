@@ -54,14 +54,16 @@ export async function execute(
     wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
 ): Promise<{
     success: boolean;
-    results: Array<{ 
-        success: boolean; 
-        result?: UserOperationReceipt; 
-        userOp?: UserOperation; 
-        chainId?: number; 
-        gas?: GasEstimate; 
-        error?: string; 
-        start: string; 
+    results: Array<{
+        success: boolean;
+        result?: UserOperationReceipt;
+        userOp?: UserOperation;
+        chainId?: number;
+        gas?: GasEstimate;
+        error?: string;
+        /** If true, job was skipped due to WASM skipRemainingSteps flag */
+        skipped?: boolean;
+        start: string;
         finish: string;
         /** DataRef context for this job - pass to operators */
         dataRefContext?: DataRefContext;
@@ -117,6 +119,20 @@ export async function execute(
                         start,
                         finish,
                         dataRefContext: result.dataRefContext,
+                        wasmRefContext: result.wasmRefContext,
+                    };
+                }
+
+                // Handle skipped jobs (WASM requested to skip remaining steps)
+                if (result.skipped) {
+                    logger.info(`⏭️ Session ${i + 1} skipped (WASM requested skip)`);
+                    const finish = new Date().toISOString();
+                    return {
+                        success: true,
+                        skipped: true,
+                        chainId: job.chainId,
+                        start,
+                        finish,
                         wasmRefContext: result.wasmRefContext,
                     };
                 }
@@ -215,6 +231,8 @@ export async function executeJob(
     userOp?: UserOperation,
     signature?: Hex,
     error?: string,
+    /** If true, job was skipped due to WASM skipRemainingSteps flag */
+    skipped?: boolean,
     /** DataRef context with block numbers - pass to operators for deterministic replay */
     dataRefContext?: DataRefContext,
     /** WASM ref context - pass to operators for deterministic replay */
@@ -338,9 +356,20 @@ export async function executeJob(
             logger.info(`WASM step ${wasmId} result verified from leader's context - will be used for contract step references`);
           }
         }
+
+        // Check if WASM requested to skip remaining steps (leader mode only)
+        // In operator mode, check the context from leader
+        const shouldSkip = wasmRefContext?.skipRemainingSteps || wasmRefResolver?.shouldSkipRemainingSteps();
+        if (shouldSkip) {
+          logger.info(`WASM requested to skip remaining steps - returning early without executing contract steps`);
+          return {
+            skipped: true,
+            wasmRefContext: wasmRefResolver?.getContext(),
+          };
+        }
       }
     }
-    
+
     // Step 2: Resolve data references in contract step arguments
     // This can now include WASM references (if wasmRefResolver is available)
     // If dataRefContext provided, use it for deterministic replay (operator mode)

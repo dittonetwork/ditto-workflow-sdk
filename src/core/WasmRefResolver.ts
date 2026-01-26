@@ -32,6 +32,8 @@ export interface ResolvedWasmRef {
 export interface WasmRefContext {
   /** All resolved WASM references with their results */
   resolvedRefs: ResolvedWasmRef[];
+  /** If true, remaining steps in the job should be skipped */
+  skipRemainingSteps?: boolean;
 }
 
 /**
@@ -111,6 +113,13 @@ export class WasmRefResolver {
   }
 
   /**
+   * Check if any WASM step requested to skip remaining steps
+   */
+  shouldSkipRemainingSteps(): boolean {
+    return this.context.skipRemainingSteps === true;
+  }
+
+  /**
    * Execute a WASM step and store the result
    */
   async executeWasmStep(ref: WasmRef): Promise<ResolvedWasmRef> {
@@ -160,6 +169,14 @@ export class WasmRefResolver {
 
       this.context.resolvedRefs.push(resolved);
       this.logger.info(`WASM step ${ref.id} completed in ${durationMs}ms`);
+
+      // Check for skip signal in WASM result
+      // Format: { ok: true, result: { skipRemainingSteps: true, ... } }
+      const result = wasmResult.result;
+      if (result && typeof result === 'object' && result.skipRemainingSteps === true) {
+        this.context.skipRemainingSteps = true;
+        this.logger.info(`WASM step ${ref.id} requested to skip remaining steps`);
+      }
 
       return resolved;
     } catch (error) {
@@ -271,6 +288,7 @@ export function serializeWasmRefContext(ctx: WasmRefContext): string {
       result: r.result, // Keep result as-is (JSON serializable)
       durationMs: r.durationMs,
     })),
+    skipRemainingSteps: ctx.skipRemainingSteps,
   });
 }
 
@@ -285,5 +303,6 @@ export function deserializeWasmRefContext(data: string): WasmRefContext {
       result: r.result,
       durationMs: r.durationMs,
     })),
+    skipRemainingSteps: parsed.skipRemainingSteps,
   };
 }
