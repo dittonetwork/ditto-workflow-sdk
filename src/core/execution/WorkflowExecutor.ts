@@ -462,16 +462,9 @@ export async function executeJob(
         }),
     });
 
-
-    const code = await publicClient.getCode({ address: "0xA00F87E6CBb55605DaA9435792D6551C39C5E0F2" })
     const userOperation = await kernelClient.prepareUserOperation({
         account: sessionKeyAccount,
         calls: calls,
-        stateOverride: [
-            {
-                address: '0x5c3bf62206e62796fc14fa0433e49b1474a12f08',
-                code: code,
-            }]
     });
 
     let signature: Hex;
@@ -487,11 +480,6 @@ export async function executeJob(
             const estimation = await kernelClient.estimateUserOperationGas({
                 account: sessionKeyAccount,
                 calls: calls,
-                stateOverride: [
-                    {
-                        address: '0x054F818907C7461Fa347431D55EDc22f93C77dAd',
-                        code: code,
-                    }]
             });
             const fees = await publicClient.estimateFeesPerGas();
             const feePerGas = BigInt(fees.maxFeePerGas);
