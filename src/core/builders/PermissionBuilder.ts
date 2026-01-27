@@ -116,7 +116,7 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
 
 export function buildSudoPolicy(): Policy {
     const policyFlag = "0x0000";
-    const policyAddress = "0xDbb028715410a8b0031E40B36989ddcEaA5Ca38a"; // DittoPolicy proxy with correct hook
+    const policyAddress = "0xDbb028715410a8b0031E40B36989ddcEaA5Ca38a";
     return {
         getPolicyData: () => {
             return "0x"
