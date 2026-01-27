@@ -467,6 +467,10 @@ export async function executeJob(
         calls: calls,
     });
 
+    // Apply 50% buffer to callGasLimit to account for execution overhead
+    // The bundler's estimation can underestimate gas for batched calls
+    userOperation.callGasLimit = (BigInt(userOperation.callGasLimit) * BigInt(150) / BigInt(100));
+
     let signature: Hex;
     try {
         signature = await sessionKeyAccount.signUserOperation(userOperation);
@@ -490,14 +494,23 @@ export async function executeJob(
                 (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
                 (estimation.paymasterPostOpGasLimit ?? BigInt(0));
             const totalGasEstimate = totalGasUnits * feePerGas;
+            // Use buffered callGasLimit from userOperation
+            const bufferedCallGasLimit = BigInt(userOperation.callGasLimit);
+            const bufferedTotalGasUnits =
+                estimation.preVerificationGas +
+                estimation.verificationGasLimit +
+                bufferedCallGasLimit +
+                (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
+                (estimation.paymasterPostOpGasLimit ?? BigInt(0));
+            const bufferedTotalGasEstimate = bufferedTotalGasUnits * feePerGas;
             return {
                 gas: {
                     preVerificationGas: estimation.preVerificationGas,
                     verificationGasLimit: estimation.verificationGasLimit,
-                    callGasLimit: estimation.callGasLimit,
+                    callGasLimit: bufferedCallGasLimit,
                     paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
                     paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
-                    totalGasEstimate,
+                    totalGasEstimate: bufferedTotalGasEstimate,
                 },
                 userOp: userOperation,
                 signature: signature,
