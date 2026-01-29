@@ -1,7 +1,7 @@
-import { Hex, createPublicClient, http, encodeFunctionData, parseAbiItem, AbiFunction, Address, keccak256, concat, pad, toHex } from 'viem';
+import { Hex, createPublicClient, http, encodeFunctionData, parseAbiItem, AbiFunction, Address } from 'viem';
 import {
 } from "@zerodev/sdk";
-import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation, getUserOperationHash } from 'viem/account-abstraction';
+import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
 import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
@@ -21,42 +21,30 @@ import { Step } from '../Step';
 // Must match the hook that DittoPolicy points to for execution to work
 const DITTO_HOOK_ADDRESS = '0xEe9Eb9Bc1860B3D803568b4fEb2447B191018Df9' as Address;
 
-// Storage slot for isApprovedUserOpHash mapping (slot 3 in DittoOthenticHook)
-// Storage layout: entryPoint(0), attestationCenter(1), dittoAttestersMask(2), isApprovedUserOpHash(3)
-const APPROVAL_MAPPING_SLOT = 3n;
-
 /**
- * Calculate storage slot for mapping(bytes32 => bool) entry.
- * Solidity slot calculation: keccak256(abi.encode(key, baseSlot))
- */
-function calculateMappingSlot(key: Hex, baseSlot: bigint): Hex {
-    return keccak256(
-        concat([
-            key,
-            pad(toHex(baseSlot), { size: 32 })
-        ])
-    );
-}
-
-/**
- * Create state override to approve a userOpHash in DittoOthenticHook.
+ * Create state override to make DittoOthenticHook.isApprovedUserOpHash() always return true.
  * This allows simulation to pass while the hook is secure on-chain.
+ *
+ * We override the contract's code with minimal bytecode that returns true for any call.
+ * This is safer than trying to match exact userOpHash which can differ during estimation.
  *
  * IMPORTANT: This is ONLY used during simulation for gas estimation.
  * Real execution goes through AVS which sets the approval in the real state.
  */
-function createApprovalStateOverride(userOpHash: Hex): Array<{
-    address: Address;
-    stateDiff: Array<{ slot: Hex; value: Hex }>;
-}> {
-    const slot = calculateMappingSlot(userOpHash, APPROVAL_MAPPING_SLOT);
+function createApprovalStateOverride(): Array<{ address: Address; code: Hex }> {
+    // Minimal bytecode that returns true (1) for any call:
+    // PUSH1 0x01    - push 1 (true)
+    // PUSH1 0x00    - push 0 (memory offset)
+    // MSTORE        - store 1 at memory[0]
+    // PUSH1 0x20    - push 32 (return size)
+    // PUSH1 0x00    - push 0 (return offset)
+    // RETURN        - return memory[0:32] which contains 1
+    const alwaysTrueCode: Hex = '0x600160005260206000f3';
 
+    // Viem expects StateOverride as an array of { address, code, ... }
     return [{
         address: DITTO_HOOK_ADDRESS,
-        stateDiff: [{
-            slot: slot,
-            value: '0x0000000000000000000000000000000000000000000000000000000000000001'
-        }]
+        code: alwaysTrueCode
     }];
 }
 
@@ -544,10 +532,18 @@ export async function executeJob(
         }),
     });
 
-    const userOperation = await kernelClient.prepareUserOperation({
+    // Create state override for simulation - this makes the DittoOthenticHook return true
+    // during gas estimation. MUST be passed to all bundler calls in simulation mode.
+    const stateOverride = simulate ? createApprovalStateOverride() : undefined;
+    if (stateOverride) {
+        logger.info('[STATE_OVERRIDE] Using state override for simulation:', JSON.stringify(stateOverride));
+    }
+
+    const userOperation: UserOperation = await kernelClient.prepareUserOperation({
         account: sessionKeyAccount,
         calls: calls,
-    });
+        stateOverride: stateOverride,
+    } as any) as UserOperation;
 
     // Apply 50% buffer to callGasLimit to account for execution overhead
     // The bundler's estimation can underestimate gas for batched calls
@@ -563,25 +559,13 @@ export async function executeJob(
 
     try {
         if (simulate) {
-            // Calculate userOpHash for state override
-            // This hash must match what the DittoOthenticHook will calculate
-            const simulationUserOpHash = getUserOperationHash({
-                userOperation: userOperation,
-                entryPointAddress: getEntryPoint(entryPointVersion).address,
-                entryPointVersion: '0.7',
-                chainId: chain!.id
-            }) as Hex;
-
-            // Create state override to approve the userOpHash during simulation
-            // This allows gas estimation to succeed with the secure DittoPolicy
-            // IMPORTANT: This only affects simulation - real execution goes through AVS
-            const stateOverride = createApprovalStateOverride(simulationUserOpHash);
-
+            // stateOverride is already created above and passed to prepareUserOperation
+            // Now we use the same override for the second gas estimation call
             const estimation = await kernelClient.estimateUserOperationGas({
                 account: sessionKeyAccount,
                 calls: calls,
                 stateOverride: stateOverride,
-            });
+            } as any);
             const fees = await publicClient.estimateFeesPerGas();
             const feePerGas = BigInt(fees.maxFeePerGas);
             const totalGasUnits =
