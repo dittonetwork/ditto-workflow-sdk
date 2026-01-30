@@ -113,12 +113,21 @@ export async function serialize(
         jobs.push({
             id: job.id,
             chainId: job.chainId,
-            steps: job.steps.map(step => ({
-                target: step.target,
-                abi: step.abi,
-                args: step.args.map(arg => arg.toString()),
-                value: (step.value || BigInt(0)).toString(),
-            })),
+            steps: job.steps.map(step => {
+                const stepJson = step.toJSON();
+                // Convert args and value to strings for serialization
+                return {
+                    ...stepJson,
+                    args: stepJson.args.map((arg: any) => {
+                        // Handle WASM references - keep them as strings
+                        if (typeof arg === 'string' && (arg.startsWith('$wasm:') || arg.startsWith('$ref:'))) {
+                            return arg;
+                        }
+                        return arg.toString();
+                    }),
+                    value: (stepJson.value || BigInt(0)).toString(),
+                };
+            }),
             session: session,
         });
     }
@@ -199,12 +208,31 @@ export async function deserialize(
             jobs: validatedData.workflow.jobs.map((job): IJob => ({
                 id: job.id,
                 chainId: job.chainId,
-                steps: job.steps.map((step): IStep => ({
-                    target: step.target,
-                    abi: step.abi,
-                    args: step.args,
-                    value: step.value ? BigInt(step.value) : undefined,
-                })),
+                steps: job.steps.map((step): IStep => {
+                    // Handle value: preserve WASM/DataRef references as strings
+                    let stepValue: bigint | string | undefined;
+                    if (step.value) {
+                        const valueStr = String(step.value);
+                        if (valueStr.startsWith('$wasm:') || valueStr.startsWith('$data:')) {
+                            stepValue = valueStr; // Preserve reference string
+                        } else {
+                            stepValue = BigInt(step.value);
+                        }
+                    }
+                    const baseStep: any = {
+                        target: step.target,
+                        abi: step.abi,
+                        args: step.args,
+                        value: stepValue,
+                    };
+                    // Include WASM fields if present
+                    if ((step as any).type) baseStep.type = (step as any).type;
+                    if ((step as any).wasmHash) baseStep.wasmHash = (step as any).wasmHash;
+                    if ((step as any).wasmInput !== undefined) baseStep.wasmInput = (step as any).wasmInput;
+                    if ((step as any).wasmId) baseStep.wasmId = (step as any).wasmId;
+                    if ((step as any).wasmTimeoutMs) baseStep.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+                    return baseStep;
+                }),
                 session: job.session,
             })),
             count: validatedData.workflow.count,

@@ -13,6 +13,7 @@ import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 import { Address, concatHex } from 'viem';
 import { Policy } from '@zerodev/permissions/types';
 import { DATA_REF_PREFIX } from '../DataRefResolver';
+import { WASM_REF_PREFIX } from '../WasmRefResolver';
 
 interface Permission {
     target: Address;
@@ -115,7 +116,7 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
 
 export function buildSudoPolicy(): Policy {
     const policyFlag = "0x0000";
-    const policyAddress = "0x4C0F7938105E45E67c545aecfA66E234fd807d1c";
+    const policyAddress = "0x7BC0c021E8B7850155b7E0156055bf3B5427c88f";
     return {
         getPolicyData: () => {
             return "0x"
@@ -133,20 +134,33 @@ export function buildSudoPolicy(): Policy {
 
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
 
+    // Max uint256 for unlimited value transfers (when using WASM/DataRef references)
+    const MAX_VALUE_LIMIT = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+    
     const permissions: Permission[] = job.steps.map(step => {
         const abiFunctions = step.getAbi();
         const abiFunction = abiFunctions[0];
+        // If value is a WASM/DataRef reference (string), use max value limit
+        // since the actual value will be resolved at execution time
+        let valueLimit: bigint;
+        if (typeof step.value === 'string' && (step.value.startsWith('$wasm:') || step.value.startsWith('$data:'))) {
+            valueLimit = MAX_VALUE_LIMIT; // Allow any value for dynamic references
+        } else if (typeof step.value === 'bigint') {
+            valueLimit = step.value;
+        } else {
+            valueLimit = BigInt(0);
+        }
         return {
             target: step.target as `0x${string}`,
-            valueLimit: step.value ?? BigInt(0),
+            valueLimit,
             abi: abiFunctions,
             functionName: step.getFunctionName(),
             args: step.args.map((arg, index) => {
                 if (arg === null) {
                     return null;
                 }
-                // Data references are resolved at runtime, so we can't restrict the value
-                if (typeof arg === 'string' && arg.startsWith(DATA_REF_PREFIX)) {
+                // Data and WASM references are resolved at runtime, so we can't restrict the value
+                if (typeof arg === 'string' && (arg.startsWith(DATA_REF_PREFIX) || arg.startsWith(WASM_REF_PREFIX))) {
                     return null;
                 }
                 const paramType = abiFunction?.inputs?.[index]?.type;

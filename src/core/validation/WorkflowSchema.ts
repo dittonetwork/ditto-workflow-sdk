@@ -5,6 +5,12 @@ const SerializedStepSchema = z.object({
     abi: z.string(),
     args: z.array(z.any()).readonly(),
     value: z.string(),
+    // WASM step fields (optional)
+    type: z.enum(['contract', 'wasm']).optional(),
+    wasmHash: z.string().optional(),
+    wasmInput: z.any().optional(),
+    wasmId: z.string().optional(),
+    wasmTimeoutMs: z.number().optional(),
 });
 
 const SerializedJobWithSessionSchema = z.object({

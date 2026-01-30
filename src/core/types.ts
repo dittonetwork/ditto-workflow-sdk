@@ -17,7 +17,14 @@ export interface Step {
   target: string;
   abi: string;  // Function signature like "transfer(address,uint256)"
   args: readonly any[];
-  value?: bigint;
+  value?: bigint | string; // Can be bigint or WASM/DataRef reference string (e.g., '$wasm:balance-1-percent')
+  /** Step type: 'contract' (default) for contract calls, 'wasm' for WASM execution */
+  type?: 'contract' | 'wasm';
+  /** WASM-specific fields (only used when type === 'wasm') */
+  wasmHash?: string;      // SHA256 hash of WASM (hex, required when type === 'wasm') - WASM bytes are retrieved from MongoDB by hash
+  wasmInput?: any;       // Input JSON for WASM execution
+  wasmId?: string;       // Unique identifier for this WASM step (for referencing results)
+  wasmTimeoutMs?: number; // Timeout in milliseconds (default: 2000)
 }
 
 export interface Job {

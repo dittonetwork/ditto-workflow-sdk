@@ -12,11 +12,79 @@ import { authHttpConfig } from '../../utils/httpTransport';
 import { GasEstimate } from '../types';
 import { Job } from '../Job';
 import { Step } from '../Step';
+
+// =============================================================
+//                    STATE OVERRIDE FOR SIMULATION
+// =============================================================
+
+// Secure DittoOthenticHook address (mainnet) - this is the hook registered with AttestationCenter
+// Must match the hook that DittoPolicy points to for execution to work
+const DITTO_HOOK_ADDRESS = '0xEe9Eb9Bc1860B3D803568b4fEb2447B191018Df9' as Address;
+
+/**
+ * Create state override to make DittoOthenticHook.isApprovedUserOpHash() always return true.
+ * This allows simulation to pass while the hook is secure on-chain.
+ *
+ * We override the contract's code with minimal bytecode that returns true for any call.
+ * This is safer than trying to match exact userOpHash which can differ during estimation.
+ *
+ * IMPORTANT: This is ONLY used during simulation for gas estimation.
+ * Real execution goes through AVS which sets the approval in the real state.
+ */
+function createApprovalStateOverride(): Array<{ address: Address; code: Hex }> {
+    // Minimal bytecode that returns true (1) for any call:
+    // PUSH1 0x01    - push 1 (true)
+    // PUSH1 0x00    - push 0 (memory offset)
+    // MSTORE        - store 1 at memory[0]
+    // PUSH1 0x20    - push 32 (return size)
+    // PUSH1 0x00    - push 0 (return offset)
+    // RETURN        - return memory[0:32] which contains 1
+    const alwaysTrueCode: Hex = '0x600160005260206000f3';
+
+    // Viem expects StateOverride as an array of { address, code, ... }
+    return [{
+        address: DITTO_HOOK_ADDRESS,
+        code: alwaysTrueCode
+    }];
+}
+
+/**
+ * Force ENABLE mode for session deserialization.
+ *
+ * The ZeroDev SDK dynamically selects validator mode based on on-chain
+ * isPluginEnabled() state. After first execution, the plugin becomes enabled,
+ * causing subsequent executions to use DEFAULT mode (0x00) instead of ENABLE
+ * mode (0x01). This breaks the signature since it was created for ENABLE mode.
+ *
+ * This function forces isPreInstalled=false to always use ENABLE mode.
+ */
+function forceEnableModeInSession(sessionStr: string): string {
+    try {
+        // Session format: base64url(JSON) - standard ZeroDev format
+        // base64url uses - instead of + and _ instead of /
+        const base64 = sessionStr.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const decoded = JSON.parse(Buffer.from(padded, 'base64').toString('utf-8'));
+
+        // Force isPreInstalled to false to ensure ENABLE mode is used
+        decoded.isPreInstalled = false;
+
+        // Re-encode to base64url
+        const encoded = Buffer.from(JSON.stringify(decoded)).toString('base64');
+        // Convert to base64url (remove padding, replace + with -, / with _)
+        return encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch (e) {
+        // If parsing fails, return original (let SDK handle any errors)
+        console.warn('Failed to patch session for ENABLE mode:', e);
+        return sessionStr;
+    }
+}
 import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
 import { Logger, getDefaultLogger } from '../Logger';
 import { DataRefResolver, DataRefContext } from '../DataRefResolver';
+import { WasmRefResolver, WasmRefContext, WasmRef } from '../WasmRefResolver';
 
 /**
  * Execute a workflow with optional DataRef context for deterministic consensus.
@@ -48,22 +116,31 @@ export async function execute(
     logger: Logger = getDefaultLogger(),
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
 ): Promise<{
     success: boolean;
-    results: Array<{ 
-        success: boolean; 
-        result?: UserOperationReceipt; 
-        userOp?: UserOperation; 
-        chainId?: number; 
-        gas?: GasEstimate; 
-        error?: string; 
-        start: string; 
+    results: Array<{
+        success: boolean;
+        result?: UserOperationReceipt;
+        userOp?: UserOperation;
+        chainId?: number;
+        gas?: GasEstimate;
+        error?: string;
+        /** If true, job was skipped due to WASM skipRemainingSteps flag */
+        skipped?: boolean;
+        start: string;
         finish: string;
         /** DataRef context for this job - pass to operators */
         dataRefContext?: DataRefContext;
+        /** WASM ref context for this job - pass to operators */
+        wasmRefContext?: WasmRefContext;
     }>;
     /** Combined DataRef context from all jobs - pass to operators for consensus */
     dataRefContext?: DataRefContext;
+    /** Combined WASM ref context from all jobs - pass to operators for consensus */
+    wasmRefContext?: WasmRefContext;
 }> {
     workflow.typify();
     
@@ -87,9 +164,13 @@ export async function execute(
                     usePaymaster,
                     accessToken,
                     dataRefContext,
+                    wasmClient,
+                    database,
+                    wasmRefContext,
+                    logger,
                 );
                 
-                // Collect context for combining later
+                // Collect contexts for combining later
                 if (result.dataRefContext) {
                     allContexts.push(result.dataRefContext);
                 }
@@ -105,6 +186,21 @@ export async function execute(
                         start,
                         finish,
                         dataRefContext: result.dataRefContext,
+                        wasmRefContext: result.wasmRefContext,
+                    };
+                }
+
+                // Handle skipped jobs (WASM requested to skip remaining steps)
+                if (result.skipped) {
+                    logger.info(`⏭️ Session ${i + 1} skipped (WASM requested skip)`);
+                    const finish = new Date().toISOString();
+                    return {
+                        success: true,
+                        skipped: true,
+                        chainId: job.chainId,
+                        start,
+                        finish,
+                        wasmRefContext: result.wasmRefContext,
                     };
                 }
 
@@ -120,6 +216,7 @@ export async function execute(
                     start,
                     finish,
                     dataRefContext: result.dataRefContext,
+                    wasmRefContext: result.wasmRefContext,
                 };
             } catch (error) {
                 logger.error(`❌ Session ${i + 1} failed:`, error);
@@ -135,20 +232,35 @@ export async function execute(
         })
     );
     
-    // Combine all contexts into one
-    const combinedContext: DataRefContext = {
+    // Combine all DataRef contexts into one
+    const combinedDataRefContext: DataRefContext = {
         chainBlocks: {},
         resolvedRefs: [],
     };
     for (const ctx of allContexts) {
-        Object.assign(combinedContext.chainBlocks, ctx.chainBlocks);
-        combinedContext.resolvedRefs.push(...ctx.resolvedRefs);
+        Object.assign(combinedDataRefContext.chainBlocks, ctx.chainBlocks);
+        combinedDataRefContext.resolvedRefs.push(...ctx.resolvedRefs);
+    }
+
+    // Combine all WASM ref contexts into one
+    const allWasmContexts: WasmRefContext[] = [];
+    for (const r of results) {
+        if (r.wasmRefContext) {
+            allWasmContexts.push(r.wasmRefContext);
+        }
+    }
+    const combinedWasmRefContext: WasmRefContext = {
+        resolvedRefs: [],
+    };
+    for (const ctx of allWasmContexts) {
+        combinedWasmRefContext.resolvedRefs.push(...ctx.resolvedRefs);
     }
 
     return {
         success: results.every((r: any) => r.success),
         results,
-        dataRefContext: combinedContext.resolvedRefs.length > 0 ? combinedContext : undefined,
+        dataRefContext: combinedDataRefContext.resolvedRefs.length > 0 ? combinedDataRefContext : undefined,
+        wasmRefContext: combinedWasmRefContext.resolvedRefs.length > 0 ? combinedWasmRefContext : undefined,
     };
 }
 
@@ -176,14 +288,22 @@ export async function executeJob(
     usePaymaster: boolean = false,
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
+    logger: Logger = getDefaultLogger(), // Logger instance
 ): Promise<{
     result?: UserOperationReceipt,
     gas?: GasEstimate,
     userOp?: UserOperation,
     signature?: Hex,
     error?: string,
+    /** If true, job was skipped due to WASM skipRemainingSteps flag */
+    skipped?: boolean,
     /** DataRef context with block numbers - pass to operators for deterministic replay */
     dataRefContext?: DataRefContext,
+    /** WASM ref context - pass to operators for deterministic replay */
+    wasmRefContext?: WasmRefContext,
 }> {
     const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[job.chainId]?.chain;
@@ -197,11 +317,14 @@ export async function executeJob(
     });
 
     const entryPoint = getEntryPoint(entryPointVersion);
+    // Force ENABLE mode to ensure signature validity across executions
+    // See: forceEnableModeInSession() for explanation of the ZeroDev SDK mode switching issue
+    const patchedSession = forceEnableModeInSession(job.session as string);
     const sessionKeyAccount = await deserializePermissionAccount(
         publicClient,
         entryPoint,
         KERNEL_V3_3,
-        job.session as string,
+        patchedSession,
         await toECDSASigner({ signer: executorAccount })
     );
     const kernelPaymaster = createPaymasterClient({
@@ -215,32 +338,188 @@ export async function executeJob(
         client: publicClient,
     });
 
-    // Resolve data references in step arguments before execution
+    // Step 1: Execute WASM steps first (they can make RPC calls)
+    // WASM results can then be referenced in subsequent contract steps
+    // In operator mode (wasmRefContext provided), we can create resolver without wasmClient
+    // because we're only resolving references from context, not executing WASM
+    const wasmRefResolver = (wasmRefContext && database)
+      ? new WasmRefResolver(wasmClient || null, database, wasmRefContext, logger) // wasmClient can be null in operator mode
+      : (wasmClient && database)
+      ? new WasmRefResolver(wasmClient, database, wasmRefContext, logger)
+      : null;
+    
+    const contractSteps: Step[] = [];
+    const wasmSteps: Step[] = [];
+    
+    logger.info(`Processing ${job.steps.length} steps in job ${job.id}`);
+    
+    // Separate WASM steps from contract steps
+    for (let i = 0; i < job.steps.length; i++) {
+      const step = job.steps[i];
+      const stepAny = step as any;
+      
+      // Check if step is a WASM step (either via type field or isWasmStep method)
+      const hasType = stepAny.type === 'wasm';
+      const hasIsWasmMethod = stepAny.isWasmStep && typeof stepAny.isWasmStep === 'function';
+      const hasWasmFields = stepAny.wasmHash && stepAny.wasmId;
+      
+      const isWasm = hasType || (hasIsWasmMethod && stepAny.isWasmStep()) || hasWasmFields;
+      
+      logger.info(`Step ${i}: type=${stepAny.type}, wasmHash=${stepAny.wasmHash}, wasmId=${stepAny.wasmId}, isWasm=${isWasm} (hasType=${hasType}, hasMethod=${hasIsWasmMethod}, hasFields=${hasWasmFields})`);
+      
+      if (isWasm) {
+        wasmSteps.push(step);
+        logger.info(`  → Classified as WASM step`);
+      } else {
+        contractSteps.push(step);
+        logger.info(`  → Classified as contract step`);
+      }
+    }
+    
+    logger.info(`Found ${wasmSteps.length} WASM steps and ${contractSteps.length} contract steps`);
+    
+    // Execute WASM steps and store results
+    if (wasmSteps.length > 0) {
+      if (!wasmRefResolver) {
+        // Owner not whitelisted or WASM client/database not available
+        // Skip WASM steps and log warning
+        logger.info(`Skipping ${wasmSteps.length} WASM step(s) - owner not whitelisted or WASM client/database not available`);
+        // WASM steps are skipped, but contract steps can still execute
+        // Note: Contract steps referencing WASM results will fail during resolution
+      } else {
+        for (const wasmStep of wasmSteps) {
+          const wasmStepAny = wasmStep as any;
+          const wasmId = wasmStepAny.wasmId;
+          if (!wasmId) {
+            logger.error(`WASM step missing wasmId - cannot execute or reference this step`);
+            throw new Error(`WASM step is missing required wasmId field`);
+          }
+          
+          const wasmRef: WasmRef = {
+            wasmHash: wasmStepAny.wasmHash!,
+            input: wasmStepAny.wasmInput || {},
+            id: wasmId,
+            timeoutMs: wasmStepAny.wasmTimeoutMs,
+          };
+          
+          logger.info(`Preparing to execute WASM step with wasmId: ${wasmId}, hash: ${wasmRef.wasmHash}`);
+          
+          // If we have existing context (operator mode), skip execution and use leader's results
+          // Otherwise execute and store result (leader mode)
+          if (!wasmRefContext) {
+            // Leader mode: Execute WASM step
+            try {
+              await wasmRefResolver.executeWasmStep(wasmRef);
+              logger.info(`WASM step ${wasmId} executed successfully and result stored`);
+            } catch (error) {
+              logger.error(`WASM step ${wasmId} execution failed:`, error);
+              throw error; // Re-throw to stop execution
+            }
+          } else {
+            // Operator mode: Use leader's WASM results, do not execute
+            logger.info(`Operator mode: Using leader's WASM result for step ${wasmId} (skipping execution)`);
+            // Verify the context has this WASM result from leader
+            const existingResult = wasmRefContext.resolvedRefs.find(r => r.ref.id === wasmId);
+            if (!existingResult) {
+              throw new Error(`WASM reference ${wasmId} not found in provided context from leader. Available: [${wasmRefContext.resolvedRefs.map(r => r.ref.id).join(', ')}]`);
+            }
+            logger.info(`WASM step ${wasmId} result verified from leader's context - will be used for contract step references`);
+          }
+        }
+
+        // Check if WASM requested to skip remaining steps (leader mode only)
+        // In operator mode, check the context from leader
+        const shouldSkip = wasmRefContext?.skipRemainingSteps || wasmRefResolver?.shouldSkipRemainingSteps();
+        if (shouldSkip) {
+          logger.info(`WASM requested to skip remaining steps - returning early without executing contract steps`);
+          return {
+            skipped: true,
+            wasmRefContext: wasmRefResolver?.getContext(),
+          };
+        }
+      }
+    }
+
+    // Step 2: Resolve data references in contract step arguments
+    // This can now include WASM references (if wasmRefResolver is available)
     // If dataRefContext provided, use it for deterministic replay (operator mode)
     // Otherwise create new context (leader mode)
     const dataRefResolver = new DataRefResolver(ipfsServiceUrl, accessToken, dataRefContext);
     const resolvedSteps: Step[] = [];
     
-    for (const step of job.steps) {
-      if (DataRefResolver.hasDataRefs(step.args)) {
-        const resolvedArgs = await dataRefResolver.resolveArgs(step.args);
-        resolvedSteps.push(new Step({
-          target: step.target as Address,
-          abi: step.abi,
-          args: resolvedArgs,
-          value: step.value,
-        }));
-      } else {
-        resolvedSteps.push(step);
+    for (const step of contractSteps) {
+      // First resolve WASM references in args if any
+      let argsToResolve = step.args;
+      let resolvedValue: bigint = BigInt(0);
+      
+      // Check if step.value is a WASM reference
+      if (step.value !== undefined) {
+        if (typeof step.value === 'string' && step.value.startsWith('$wasm:')) {
+          if (!wasmRefResolver) {
+            throw new Error(
+              `Contract step value references WASM result but owner is not whitelisted for WASM execution. ` +
+              `WASM steps were skipped. Please whitelist the workflow owner or remove WASM references.`
+            );
+          }
+          const resolved = await wasmRefResolver.resolveArg(step.value);
+          // Convert resolved value to bigint
+          if (typeof resolved === 'bigint') {
+            resolvedValue = resolved;
+          } else if (typeof resolved === 'string') {
+            // Parse hex string or decimal string
+            resolvedValue = resolved.startsWith('0x') ? BigInt(resolved) : BigInt(resolved);
+          } else if (typeof resolved === 'number') {
+            resolvedValue = BigInt(resolved);
+          } else {
+            throw new Error(`WASM reference for value must resolve to a number, got: ${typeof resolved}`);
+          }
+        } else if (typeof step.value === 'bigint') {
+          resolvedValue = step.value;
+        } else if (typeof step.value === 'string') {
+          resolvedValue = BigInt(step.value);
+        }
       }
+      
+      // Resolve WASM references in args
+      if (WasmRefResolver.hasWasmRefs(step.args)) {
+        if (!wasmRefResolver) {
+          throw new Error(
+            `Contract step references WASM result but owner is not whitelisted for WASM execution. ` +
+            `WASM steps were skipped. Please whitelist the workflow owner or remove WASM references from contract steps.`
+          );
+        }
+        argsToResolve = await wasmRefResolver.resolveArgs(step.args);
+      }
+      
+      // Then resolve DataRef references
+      let resolvedArgs = argsToResolve;
+      if (DataRefResolver.hasDataRefs(argsToResolve)) {
+        resolvedArgs = await dataRefResolver.resolveArgs(argsToResolve);
+      }
+      
+      const stepParams: any = {
+        target: step.target as Address,
+        abi: step.abi,
+        args: resolvedArgs,
+        value: resolvedValue,
+      };
+      // Preserve WASM fields if present (shouldn't be for contract steps, but just in case)
+      if ((step as any).type) stepParams.type = (step as any).type;
+      if ((step as any).wasmHash) stepParams.wasmHash = (step as any).wasmHash;
+      if ((step as any).wasmInput !== undefined) stepParams.wasmInput = (step as any).wasmInput;
+      if ((step as any).wasmId) stepParams.wasmId = (step as any).wasmId;
+      if ((step as any).wasmTimeoutMs) stepParams.wasmTimeoutMs = (step as any).wasmTimeoutMs;
+      resolvedSteps.push(new Step(stepParams));
     }
     
-    // Get the context (with block numbers) for passing to operators
-    const resolvedContext = dataRefResolver.getContext();
+    // Get the contexts for passing to operators
+    const resolvedDataRefContext = dataRefResolver.getContext();
+    const resolvedWasmRefContext = wasmRefResolver?.getContext();
 
     const calls = resolvedSteps.map(step => ({
         to: step.target as `0x${string}`,
-        value: step.value ?? BigInt(0),
+        // After resolution, value should always be bigint (references are resolved above)
+        value: (typeof step.value === 'bigint' ? step.value : BigInt(0)) as bigint,
         data: step.getCalldata() as `0x${string}`,
     }));
     calls.push({
@@ -253,17 +532,22 @@ export async function executeJob(
         }),
     });
 
+    // Create state override for simulation - this makes the DittoOthenticHook return true
+    // during gas estimation. MUST be passed to all bundler calls in simulation mode.
+    const stateOverride = simulate ? createApprovalStateOverride() : undefined;
+    if (stateOverride) {
+        logger.info('[STATE_OVERRIDE] Using state override for simulation:', JSON.stringify(stateOverride));
+    }
 
-    const code = await publicClient.getCode({ address: "0xA00F87E6CBb55605DaA9435792D6551C39C5E0F2" })
-    const userOperation = await kernelClient.prepareUserOperation({
+    const userOperation: UserOperation = await kernelClient.prepareUserOperation({
         account: sessionKeyAccount,
         calls: calls,
-        stateOverride: [
-            {
-                address: '0x5c3bf62206e62796fc14fa0433e49b1474a12f08',
-                code: code,
-            }]
-    });
+        stateOverride: stateOverride,
+    } as any) as UserOperation;
+
+    // Apply 50% buffer to callGasLimit to account for execution overhead
+    // The bundler's estimation can underestimate gas for batched calls
+    userOperation.callGasLimit = (BigInt(userOperation.callGasLimit) * BigInt(150) / BigInt(100));
 
     let signature: Hex;
     try {
@@ -275,15 +559,13 @@ export async function executeJob(
 
     try {
         if (simulate) {
+            // stateOverride is already created above and passed to prepareUserOperation
+            // Now we use the same override for the second gas estimation call
             const estimation = await kernelClient.estimateUserOperationGas({
                 account: sessionKeyAccount,
                 calls: calls,
-                stateOverride: [
-                    {
-                        address: '0x054F818907C7461Fa347431D55EDc22f93C77dAd',
-                        code: code,
-                    }]
-            });
+                stateOverride: stateOverride,
+            } as any);
             const fees = await publicClient.estimateFeesPerGas();
             const feePerGas = BigInt(fees.maxFeePerGas);
             const totalGasUnits =
@@ -293,18 +575,28 @@ export async function executeJob(
                 (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
                 (estimation.paymasterPostOpGasLimit ?? BigInt(0));
             const totalGasEstimate = totalGasUnits * feePerGas;
+            // Use buffered callGasLimit from userOperation
+            const bufferedCallGasLimit = BigInt(userOperation.callGasLimit);
+            const bufferedTotalGasUnits =
+                estimation.preVerificationGas +
+                estimation.verificationGasLimit +
+                bufferedCallGasLimit +
+                (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
+                (estimation.paymasterPostOpGasLimit ?? BigInt(0));
+            const bufferedTotalGasEstimate = bufferedTotalGasUnits * feePerGas;
             return {
                 gas: {
                     preVerificationGas: estimation.preVerificationGas,
                     verificationGasLimit: estimation.verificationGasLimit,
-                    callGasLimit: estimation.callGasLimit,
+                    callGasLimit: bufferedCallGasLimit,
                     paymasterVerificationGasLimit: estimation.paymasterVerificationGasLimit,
                     paymasterPostOpGasLimit: estimation.paymasterPostOpGasLimit,
-                    totalGasEstimate,
+                    totalGasEstimate: bufferedTotalGasEstimate,
                 },
                 userOp: userOperation,
                 signature: signature,
-                dataRefContext: resolvedContext,
+                dataRefContext: resolvedDataRefContext,
+                wasmRefContext: resolvedWasmRefContext,
             };
         }
         const userOpHash = await kernelClient.sendUserOperation({
@@ -315,13 +607,15 @@ export async function executeJob(
             result: result,
             userOp: userOperation,
             signature: signature,
-            dataRefContext: resolvedContext,
+            dataRefContext: resolvedDataRefContext,
+            wasmRefContext: resolvedWasmRefContext,
         };
     } catch (error) {
         return {
             userOp: userOperation,
             error: error instanceof Error ? error.message : 'Unknown error',
-            dataRefContext: resolvedContext,
+            dataRefContext: resolvedDataRefContext,
+            wasmRefContext: resolvedWasmRefContext,
         }
     }
 }
@@ -349,6 +643,9 @@ export async function executeFromIpfs(
     usePaymaster: boolean = false,
     accessToken?: string,
     dataRefContext?: DataRefContext,
+    wasmClient?: any, // WasmClient instance from simulator
+    database?: any, // Database instance for WASM module lookup
+    wasmRefContext?: WasmRefContext, // For deterministic replay (operator mode)
 ): Promise<{
     success: boolean;
     results: Array<{ 
@@ -361,10 +658,13 @@ export async function executeFromIpfs(
         start: string; 
         finish: string;
         dataRefContext?: DataRefContext;
+        wasmRefContext?: WasmRefContext;
     }>;
     markRunHash?: Hex;
     /** DataRef context - pass to operators for deterministic consensus */
     dataRefContext?: DataRefContext;
+    /** WASM ref context - pass to operators for deterministic consensus */
+    wasmRefContext?: WasmRefContext;
 }> {
     const data = await storage.download(ipfsHash);
     const workflow = await deserialize(data);
@@ -382,12 +682,16 @@ export async function executeFromIpfs(
         usePaymaster, 
         undefined, 
         accessToken,
-        dataRefContext
+        dataRefContext,
+        wasmClient,
+        database,
+        wasmRefContext
     );
 
     return {
         success: results.success,
         results: results.results,
         dataRefContext: results.dataRefContext,
+        wasmRefContext: results.wasmRefContext,
     };
 } 
