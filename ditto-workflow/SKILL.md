@@ -131,7 +131,35 @@ async function main() {
 main().catch(console.error);
 ```
 
-### Step 3: Run and Verify
+### Step 3: Fund the Smart Account
+
+IMPORTANT: The Ditto SDK uses ZeroDev smart accounts (account abstraction). The smart account address is **different from the owner's EOA wallet address**. It is deterministically derived from the owner's private key by the ZeroDev kernel.
+
+When `submitWorkflow` runs, it registers the workflow on-chain from this smart account. The smart account must have ETH on the target chain to pay for gas.
+
+**How to find the smart account address:** Run the workflow script — if underfunded, the error message will include the smart account address (e.g., `AA21 didn't pay prefund`). Alternatively, add this before `submitWorkflow`:
+
+```typescript
+import { signerToEcdsaValidator } from '@zerodev/ecdsa-validator';
+import { createKernelAccount } from '@zerodev/sdk';
+import { createPublicClient, http } from 'viem';
+import { getChainConfig } from '@ditto/workflow-sdk';
+
+const chainConfig = getChainConfig(process.env.IPFS_SERVICE_URL!);
+const chain = chainConfig[ChainId.BASE_SEPOLIA]; // use your target chain
+const publicClient = createPublicClient({ chain: chain.chain, transport: http(chain.rpcUrl) });
+const ecdsaValidator = await signerToEcdsaValidator(publicClient, { signer: owner, entryPoint: { address: '0x0000000071727De22E5E9d8BAf0edAc6f37da032', version: '0.7' } });
+const kernelAccount = await createKernelAccount(publicClient, { plugins: { sudo: ecdsaValidator }, entryPoint: { address: '0x0000000071727De22E5E9d8BAf0edAc6f37da032', version: '0.7' } });
+console.log('Smart account address (fund this):', kernelAccount.address);
+```
+
+**Funding:**
+- **Testnet:** Use a faucet (e.g., Sepolia faucet, Base Sepolia faucet) to send test ETH to the smart account address
+- **Production:** Send real ETH (0.005–0.01 ETH is typically enough for gas) to the smart account address on the target chain
+
+CRITICAL: Always recommend testnet first. Only proceed to production chains after the user has verified the workflow works on testnet.
+
+### Step 4: Run and Verify
 
 ```bash
 npx ts-node your-workflow-script.ts
@@ -212,6 +240,34 @@ import { WorkflowContract } from '@ditto/workflow-sdk';
 const wfContract = new WorkflowContract(process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`);
 await wfContract.cancelWorkflow(ipfsHash, ownerAccount, chainId, process.env.IPFS_SERVICE_URL!);
 ```
+
+### Check Workflow Status & Execution History
+
+Use the Ditto Network API (base URL: `https://ipfs-service.dittonetwork.io`) to monitor deployed workflows. All endpoints use the IPFS hash returned by `submitWorkflow`.
+
+**Get workflow status:**
+```typescript
+const ipfsHash = 'QmYourWorkflowHash';
+const res = await fetch(`https://ipfs-service.dittonetwork.io/workflow/status/${ipfsHash}`);
+const status = await res.json();
+console.log('Workflow status:', status);
+```
+
+**Get execution logs (recent runs):**
+```typescript
+const res = await fetch(`https://ipfs-service.dittonetwork.io/workflow/logs/${ipfsHash}?limit=20`);
+const logs = await res.json();
+console.log('Execution logs:', logs);
+```
+
+**Get execution reports (detailed, paginated):**
+```typescript
+const res = await fetch(`https://ipfs-service.dittonetwork.io/get-reports?ipfsHash=${ipfsHash}&page=1&limit=100`);
+const reports = await res.json();
+console.log('Execution reports:', reports);
+```
+
+These are simple GET requests — no authentication required. The `ipfsHash` is the one returned from `submitWorkflow`. Always save it after deployment so you can check status later.
 
 ### Data References (read contract state at execution time)
 ```typescript
@@ -355,6 +411,10 @@ Solution: Add at least one `.addStep({...})` call.
 ### Error: "Expiration time must be in the future"
 Cause: `setValidUntil` was given a past timestamp.
 Solution: Use `Date.now() + duration_in_ms`.
+
+### Error: "AA21 didn't pay prefund"
+Cause: The ZeroDev smart account doesn't have enough ETH to pay for gas. The smart account address is different from the owner's EOA — it's derived deterministically from the owner's private key.
+Solution: Send ETH to the smart account address shown in the error on the target chain. See "Step 3: Fund the Smart Account" above. For testnet, use a faucet. For production, 0.005–0.01 ETH is typically enough.
 
 ### Transaction fails / reverts
 Causes:
