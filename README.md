@@ -420,13 +420,14 @@ import {
   executeFromIpfs,
   IpfsStorage,
   OnchainConditionOperator,
+  getDittoExecutorAddress,
 } from '@ditto/workflow-sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia, sepolia } from 'viem/chains';
 import { IpfsServiceUrl } from '@ditto/workflow-sdk/src/utils/constants';
 
 const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-const executorAddress = process.env.EXECUTOR_ADDRESS as `0x${string}`;
+const executorAddress = getDittoExecutorAddress();
 const storage = new IpfsStorage(IpfsServiceUrl);
 
 const workflow = WorkflowBuilder.create(owner)
@@ -549,4 +550,51 @@ This example demonstrates:
 ZERODEV_API_KEY=<api-key>
 IPFS_SERVICE_URL=https://ipfs-service.dittonetwork.io
 ```
+
+---
+
+## 8. Claude Skill (AI-Assisted Workflow Creation)
+
+This SDK ships with a **Claude Skill** — a set of instructions that teaches Claude (and other AI agents) how to create, configure, deploy, simulate, and cancel Ditto workflows using the SDK.
+
+### What it enables
+
+Instead of manually writing workflow scripts, you can describe what you want in natural language:
+
+> "Create a workflow that sends 0.01 ETH to 0xABC every 6 hours on Base Sepolia, up to 10 times"
+
+Claude will generate the complete TypeScript script using the SDK's builder API, handle environment setup, and guide you through deployment.
+
+### Skill structure
+
+```
+ditto-workflow/
+└── SKILL.md    # Complete instructions, API reference, and examples
+```
+
+Everything is in a single file — the SDK source code serves as the detailed reference when Claude needs more depth.
+
+### Installation
+
+**Claude Code** — place the `ditto-workflow/` folder in your Claude Code skills directory, or use it directly from the repo.
+
+**Claude.ai** — zip the `ditto-workflow/` folder and upload via Settings > Capabilities > Skills.
+
+### Use cases
+
+| Scenario | What Claude does |
+|----------|-----------------|
+| "Schedule a weekly DCA swap" | Builds a cron-triggered workflow with approve + swap steps |
+| "Monitor an oracle and swap when ETH > $3000" | Creates an onchain trigger with condition + swap job |
+| "Automate rebalancing across Base and Arbitrum" | Generates a multi-chain workflow with jobs on each chain |
+| "Simulate my workflow before deploying" | Runs `executeFromIpfs` with `simulate: true` |
+
+### Covered operations
+
+- Workflow creation with all trigger types (cron, event, onchain)
+- Multi-chain and multi-step jobs
+- Data references (dynamic contract reads at execution time)
+- Simulation / dry-run with gas estimates
+- Deployment to testnet and production registries
+- Workflow cancellation
 
