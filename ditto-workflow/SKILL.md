@@ -243,9 +243,9 @@ await wfContract.cancelWorkflow(ipfsHash, ownerAccount, chainId, process.env.IPF
 
 ### Check Workflow Status & Execution History
 
-Use the Ditto Network API (base URL: `https://ipfs-service.dittonetwork.io`) to monitor deployed workflows. All endpoints use the IPFS hash returned by `submitWorkflow`.
+Use the Ditto Network API (base URL: `https://ipfs-service.dittonetwork.io`) to monitor deployed workflows. All endpoints use the IPFS hash returned by `submitWorkflow`. No authentication required.
 
-**Get workflow status:**
+**1. Workflow status** — check if the workflow is active, paused, or cancelled:
 ```typescript
 const ipfsHash = 'QmYourWorkflowHash';
 const res = await fetch(`https://ipfs-service.dittonetwork.io/workflow/status/${ipfsHash}`);
@@ -253,21 +253,22 @@ const status = await res.json();
 console.log('Workflow status:', status);
 ```
 
-**Get execution logs (recent runs):**
+**2. Execution logs (USE THIS to check last executions)** — returns the actual execution history with results, timestamps, and transaction details:
 ```typescript
 const res = await fetch(`https://ipfs-service.dittonetwork.io/workflow/logs/${ipfsHash}?limit=20`);
 const logs = await res.json();
 console.log('Execution logs:', logs);
 ```
+This is the primary endpoint for checking whether a workflow has run, when it ran, and whether executions succeeded or failed.
 
-**Get execution reports (detailed, paginated):**
+**3. Execution reports (advanced — NOT for checking execution history)** — these are internal simulation reports sent by all network operator nodes participating in the workflow. Each operator independently simulates the workflow, so you'll see multiple reports per execution (one per node). This is useful for debugging network-level issues but NOT for checking whether your workflow actually executed:
 ```typescript
 const res = await fetch(`https://ipfs-service.dittonetwork.io/get-reports?ipfsHash=${ipfsHash}&page=1&limit=100`);
 const reports = await res.json();
-console.log('Execution reports:', reports);
+console.log('Node simulation reports:', reports);
 ```
 
-These are simple GET requests — no authentication required. The `ipfsHash` is the one returned from `submitWorkflow`. Always save it after deployment so you can check status later.
+IMPORTANT: When the user asks to "check last executions" or "see execution history", always use the **execution logs** endpoint (`/workflow/logs/`), NOT the reports endpoint. Reports show per-node simulation data, not actual execution outcomes.
 
 ### Data References (read contract state at execution time)
 ```typescript
