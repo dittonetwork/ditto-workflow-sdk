@@ -23,6 +23,10 @@ export class StatelessChainConfigProvider {
         }
         return '0x580F57c1668d9272aE54168f630cc84b10ec65F7' as `0x${string}`
     }
+
+    static getDittoExecutorAddress(): `0x${string}` {
+        return '0xF177179963aA0EDE80Be4396d04d970171CF6a36' as `0x${string}`
+    }
 }
 
 export function getChains(isProd: boolean): Chain[] {
@@ -35,6 +39,10 @@ export function getChainConfig(ipfsServiceUrl: string): Record<number, ChainConf
 
 export function getDittoWFRegistryAddress(isProd: boolean): `0x${string}` {
     return StatelessChainConfigProvider.getDittoWFRegistryAddress(isProd)
+}
+
+export function getDittoExecutorAddress(): `0x${string}` {
+    return StatelessChainConfigProvider.getDittoExecutorAddress()
 }
 
 // Re-export enum for consumers expecting it from this module

@@ -20,7 +20,7 @@ export { IpfsStorage } from './storage/IpfsStorage';
 export { WorkflowContract } from './contracts/WorkflowContract';
 
 // Utility exports
-export { getChainConfig } from './utils/chainConfigProvider';
+export { getChainConfig, getDittoExecutorAddress } from './utils/chainConfigProvider';
 export { ChainId } from './utils/constants';
 
 // Workflow execution and serialization exports
