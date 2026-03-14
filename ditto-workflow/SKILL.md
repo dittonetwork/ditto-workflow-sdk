@@ -13,16 +13,16 @@ metadata:
 
 Build and deploy declarative on-chain automation workflows using `@ditto/workflow-sdk`. Workflows define triggers (cron, event, onchain state) and jobs (batched contract calls) that execute via ZeroDev smart accounts with session keys.
 
-**SDK source:** [github.com/dittonetwork/ditto-workflow-sdk](https://github.com/dittonetwork/ditto-workflow-sdk) (branch: `skill-integration`)
+**SDK source:** [github.com/dittonetwork/ditto-workflow-sdk](https://github.com/dittonetwork/ditto-workflow-sdk) (branch: `master`)
 
 ## Architecture: Owner vs Executor
 
 Understanding these two roles is critical:
 
 - **Owner** (the client/user): Holds a private key, creates and signs workflows. This is the only key the user provides.
-- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The client only needs the executor's **public address**, never its private key.
+- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The sdk provides the executor's public address to issue session permissions.
 
-`submitWorkflow` takes `executorAddress` (a public `0x...` address) — NOT a private key. The session key system grants scoped permissions to this address so the network can execute on behalf of the owner's smart account.
+`submitWorkflow` takes `executorAddress` (a public `0x...` address). The session key system grants scoped permissions to this address so the network can execute on behalf of the owner's smart account.
 
 ## Critical: Before You Start
 
@@ -46,10 +46,9 @@ Optional (only needed for cancellation):
 WORKFLOW_CONTRACT_ADDRESS=0x... # DittoWFRegistry address
 ```
 
-The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`. Do NOT ask the user for an executor address or private key.
+The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`.
 
 CRITICAL:
-- Never ask the user for an executor private key or address. The SDK provides the executor address via `getDittoExecutorAddress()`.
 - Never hardcode the owner's private key in source files. Always load from `.env` via `dotenv`.
 
 ## Instructions
@@ -186,8 +185,6 @@ Expected output: IPFS hash and transaction receipt(s). The Ditto Network will no
 | Optimism | `ChainId.OPTIMISM` | 10 |
 | Ethereum Mainnet | `ChainId.MAINNET` | 1 |
 
-Note: `ChainId.HOLESKY` (17000) exists in the enum but is deprecated and should not be used for new workflows.
-
 CRITICAL: NEVER deploy to production chains (Base, Arbitrum, Polygon, Optimism, Mainnet) without explicit user confirmation. Always default to testnet. When deploying to production, set `prodContract: true` in `submitWorkflow`.
 
 ## Trigger Types
@@ -231,7 +228,7 @@ Multiple triggers are AND-ed: all must be satisfied for execution.
 
 ### Simulate (dry run)
 
-Simulation is typically performed by the Ditto Network operators, not by clients. If you need to simulate locally for debugging, use `executeFromIpfs` with `simulate: true` — but note this requires an executor account with signing capability (for local testing only).
+The SDK supports local dry-run simulation. You can issue a session to any address (not just the Ditto executor) by passing a custom address during workflow submission, then call `executeFromIpfs` with `simulate: true`. This performs gas estimation without sending transactions — useful for debugging workflows before deploying to the network.
 
 ### Cancel a Workflow
 ```typescript

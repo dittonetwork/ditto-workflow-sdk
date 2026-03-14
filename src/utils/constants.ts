@@ -1,10 +1,9 @@
 import { parseAbiItem, AbiFunction } from 'viem'
-import { baseSepolia, holesky, sepolia, base, mainnet, arbitrum, polygon, optimism } from 'viem/chains'
+import { baseSepolia, sepolia, base, mainnet, arbitrum, polygon, optimism } from 'viem/chains'
 
 export enum ChainId {
     SEPOLIA = 11155111,
     BASE_SEPOLIA = 84532,
-    HOLESKY = 17000,
     BASE = 8453,
     ARBITRUM = 42161,
     POLYGON = 137,
