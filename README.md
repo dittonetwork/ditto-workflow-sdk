@@ -4,6 +4,8 @@ TypeScript SDK for declarative authoring and execution of on-chain workflows usi
 
 > **Goal** – allow a developer to describe a sequence of transactions as data, upload it to IPFS, register a single CID on-chain and execute the whole flow without manually signing every call.
 
+> **For AI Agents / LLMs:** See [`ditto-workflow/SKILL.md`](./ditto-workflow/SKILL.md) for structured instructions and complete recipes to create, deploy, and cancel workflows.
+
 ---
 
 ## 1. Core Concepts
@@ -572,7 +574,7 @@ ditto-workflow/
 └── SKILL.md    # Complete instructions, API reference, and examples
 ```
 
-Everything is in a single file — the SDK source code serves as the detailed reference when Claude needs more depth.
+Everything is in a single file — fully self-contained with complete recipes, API reference, environment setup, and troubleshooting. The skill file is the only file an AI agent needs to read.
 
 ### Installation
 
@@ -587,6 +589,7 @@ Everything is in a single file — the SDK source code serves as the detailed re
 | "Schedule a weekly DCA swap" | Builds a cron-triggered workflow with approve + swap steps |
 | "Monitor an oracle and swap when ETH > $3000" | Creates an onchain trigger with condition + swap job |
 | "Automate rebalancing across Base and Arbitrum" | Generates a multi-chain workflow with jobs on each chain |
+| "Call my contract when a token is transferred" | Creates an event-triggered workflow with custom contract call |
 | "Simulate my workflow before deploying" | Runs `executeFromIpfs` with `simulate: true` |
 
 ### Covered operations
