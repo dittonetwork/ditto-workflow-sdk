@@ -15,12 +15,14 @@ Build and deploy declarative on-chain automation workflows using `@ditto/workflo
 
 **SDK source:** [github.com/dittonetwork/ditto-workflow-sdk](https://github.com/dittonetwork/ditto-workflow-sdk) (branch: `master`)
 
+IMPORTANT: This skill file is the single source of truth for creating workflows. Do NOT read the SDK's `examples/`, `.env.example`, or `README.md` for guidance — they contain advanced operator patterns not intended for consumer workflow creation. Everything you need is in this file.
+
 ## Architecture: Owner vs Executor
 
 Understanding these two roles is critical:
 
 - **Owner** (the client/user): Holds a private key, creates and signs workflows. This is the only key the user provides.
-- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The sdk provides the executor's public address to issue session permissions.
+- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The SDK provides the executor's public address to issue session permissions.
 
 `submitWorkflow` takes `executorAddress` (a public `0x...` address). The session key system grants scoped permissions to this address so the network can execute on behalf of the owner's smart account.
 
@@ -34,22 +36,20 @@ BEFORE writing any workflow code, verify the project setup:
 
 ## Environment Setup
 
-The `.env` file MUST contain:
+Create a `.env` file with exactly these two variables:
 
 ```
 PRIVATE_KEY=0x...          # Owner's private key (the user's wallet — used to sign and deploy)
 IPFS_SERVICE_URL=https://ipfs-service.dittonetwork.io
 ```
 
-Optional (only needed for cancellation):
-```
-WORKFLOW_CONTRACT_ADDRESS=0x... # DittoWFRegistry address
-```
+The `IPFS_SERVICE_URL` MUST be exactly `https://ipfs-service.dittonetwork.io`. No other URL works. Do not use `api.ditto.network`, localhost URLs, or any other endpoint.
 
-The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`.
+The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`. Never ask the user for an executor address or private key.
 
 CRITICAL:
 - Never hardcode the owner's private key in source files. Always load from `.env` via `dotenv`.
+- Always use `getDittoExecutorAddress()` for the executor address. Never derive it from a private key.
 
 ## Instructions
 
@@ -70,65 +70,13 @@ Create a TypeScript file that:
 1. Loads environment variables with `dotenv`
 2. Creates the owner account with `privateKeyToAccount`
 3. Builds the workflow using `WorkflowBuilder` and `JobBuilder`
-4. Submits with `submitWorkflow`, passing the executor's public address
+4. Submits with `submitWorkflow`, passing ALL required parameters
 
 **Key pattern:** `WorkflowBuilder.create()` takes an `Account` (address only, no signing capability). Use `addressToEmptyAccount(owner.address)` for this. The actual `Signer` (full private key account from `privateKeyToAccount`) is passed separately to `submitWorkflow` for signing session keys and transactions.
 
-Minimal template:
-
-```typescript
-import {
-  WorkflowBuilder, JobBuilder, ChainId,
-  submitWorkflow, IpfsStorage, getDittoExecutorAddress
-} from '@ditto/workflow-sdk';
-import { privateKeyToAccount } from 'viem/accounts';
-import { addressToEmptyAccount } from '@zerodev/sdk';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
-
-async function main() {
-  // Owner: full Signer (signs the workflow and session keys)
-  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-
-  // Executor address is provided by the SDK — no user configuration needed
-  const executorAddress = getDittoExecutorAddress();
-
-  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
-
-  // WorkflowBuilder gets Account (address only), not Signer
-  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
-    .addCronTrigger('0 */6 * * *')  // Every 6 hours
-    .setCount(10)                    // Max 10 executions
-    .setValidUntil(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-    .addJob(
-      JobBuilder.create('my-job')
-        .setChainId(ChainId.BASE_SEPOLIA)
-        .addStep({
-          target: '0xRecipientAddress',
-          abi: '',           // Empty ABI = raw ETH transfer
-          args: [],
-          value: BigInt(1e15) // 0.001 ETH in wei
-        })
-        .build()
-    )
-    .build();
-
-  const { ipfsHash, userOpHashes } = await submitWorkflow(
-    workflow,
-    executorAddress,               // Public address, not a key
-    storage,
-    owner,                         // Owner signs here
-    false,                         // prodContract: false = testnet
-    process.env.IPFS_SERVICE_URL!,
-  );
-
-  console.log('Deployed! IPFS hash:', ipfsHash);
-  console.log('Transaction receipts:', userOpHashes);
-}
-
-main().catch(console.error);
-```
+CRITICAL — `value` must be `BigInt`:
+- CORRECT: `value: BigInt(1000000000000000)` or `value: 1000000000000000n`
+- WRONG: `value: 1` or `value: "1"` — plain numbers or strings cause session permissions to be generated incorrectly, resulting in failed workflow execution.
 
 ### Step 3: Fund the Smart Account
 
@@ -231,10 +179,14 @@ Multiple triggers are AND-ed: all must be satisfied for execution.
 The SDK supports local dry-run simulation. You can issue a session to any address (not just the Ditto executor) by passing a custom address during workflow submission, then call `executeFromIpfs` with `simulate: true`. This performs gas estimation without sending transactions — useful for debugging workflows before deploying to the network.
 
 ### Cancel a Workflow
-```typescript
-import { WorkflowContract } from '@ditto/workflow-sdk';
 
-const wfContract = new WorkflowContract(process.env.WORKFLOW_CONTRACT_ADDRESS as `0x${string}`);
+To cancel a deployed workflow, you need the IPFS hash from `submitWorkflow` and the registry address for the environment (prod or testnet):
+
+```typescript
+import { WorkflowContract, getDittoWFRegistryAddress } from '@ditto/workflow-sdk';
+
+const registryAddress = getDittoWFRegistryAddress(false); // false = testnet, true = production
+const wfContract = new WorkflowContract(registryAddress);
 await wfContract.cancelWorkflow(ipfsHash, ownerAccount, chainId, process.env.IPFS_SERVICE_URL!);
 ```
 
@@ -303,9 +255,11 @@ interface Step {
   abi: string;                 // Function signature, e.g. "transfer(address,uint256)"
                                // Empty string "" for raw ETH transfer
   args: readonly any[];        // Function arguments (can include dataRef strings)
-  value?: bigint | string;     // ETH value in wei
+  value?: bigint;              // ETH value in wei — MUST be BigInt
 }
 ```
+
+CRITICAL: The `value` field MUST use `BigInt()`. Using a plain number (e.g., `value: 1`) or string (e.g., `value: "1"`) instead of `BigInt(1)` will cause session permissions to be generated incorrectly, and the workflow will fail at execution time.
 
 ## Key Function Signatures
 
@@ -313,90 +267,403 @@ interface Step {
 ```typescript
 async function submitWorkflow(
   workflow: Workflow,
-  executorAddress: `0x${string}`, // Public address of the Ditto Network executor
+  executorAddress: `0x${string}`, // Use getDittoExecutorAddress()
   storage: IWorkflowStorage,
   owner: Signer,                  // Owner signs (from privateKeyToAccount)
   prodContract: boolean,          // true = mainnet registry, false = testnet
-  ipfsServiceUrl: string,
+  ipfsServiceUrl: string,         // process.env.IPFS_SERVICE_URL
   usePaymaster?: boolean,         // Default: false
   switchChain?: (chainId: number) => Promise<void>,
   accessToken?: string,
 ): Promise<{ ipfsHash: string; userOpHashes: UserOperationReceipt[] }>;
 ```
 
-### executeFromIpfs (used by network operators, not clients)
-```typescript
-async function executeFromIpfs(
-  ipfsHash: string,
-  storage: IWorkflowStorage,
-  executorAccount: Signer,    // Executor's Signer — held by network operators only
-  prodContract: boolean,
-  ipfsServiceUrl: string,
-  simulate?: boolean,
-  usePaymaster?: boolean,
-  accessToken?: string,
-): Promise<{ success: boolean; results: any[] }>;
-```
+IMPORTANT: `prodContract` and `ipfsServiceUrl` are REQUIRED parameters with no defaults. Always pass them explicitly.
 
-## Multi-Chain Workflows
+## Complete Recipes
 
-A workflow can have multiple jobs on different chains:
+### Recipe 1: Recurring ETH Transfer (Testnet)
+
+Sends 0.001 ETH to a recipient every 6 hours on Base Sepolia, up to 10 times.
 
 ```typescript
-.addJob(
-  JobBuilder.create('job-sepolia')
-    .setChainId(ChainId.SEPOLIA)
-    .addStep({ /* ... */ })
-    .build()
-)
-.addJob(
-  JobBuilder.create('job-base')
-    .setChainId(ChainId.BASE)
-    .addStep({ /* ... */ })
-    .build()
-)
+import {
+  WorkflowBuilder, JobBuilder, ChainId,
+  submitWorkflow, IpfsStorage, getDittoExecutorAddress
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import { addressToEmptyAccount } from '@zerodev/sdk';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const executorAddress = getDittoExecutorAddress();
+  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+
+  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+    .addCronTrigger('0 */6 * * *')
+    .setCount(10)
+    .setValidUntil(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .addJob(
+      JobBuilder.create('eth-transfer')
+        .setChainId(ChainId.BASE_SEPOLIA)
+        .addStep({
+          target: '0xRecipientAddressHere',
+          abi: '',
+          args: [],
+          value: BigInt('1000000000000000') // 0.001 ETH in wei
+        })
+        .build()
+    )
+    .build();
+
+  const { ipfsHash, userOpHashes } = await submitWorkflow(
+    workflow,
+    executorAddress,
+    storage,
+    owner,
+    false,                         // testnet
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Deployed! IPFS hash:', ipfsHash);
+  console.log('UserOp receipts:', userOpHashes.map(r => r.receipt?.transactionHash));
+}
+
+main().catch(console.error);
 ```
 
-Each job gets its own session key and on-chain registration.
+### Recipe 2: ERC-20 Approve + Swap (Production)
 
-## Multi-Step Job (Approve + Swap)
-
-Steps within a single job execute atomically:
+Approves a token and swaps it on a DEX every week on Base. Steps within a single job execute atomically.
 
 ```typescript
-JobBuilder.create('weekly-dca')
-  .setChainId(ChainId.BASE)
-  .addStep({
-    target: tokenAddress,
-    abi: 'approve(address,uint256)',
-    args: [routerAddress, amount],
-  })
-  .addStep({
-    target: routerAddress,
-    abi: 'swapExactTokensForETH(uint256,uint256,address[],address,uint256)',
-    args: [amount, 0, [tokenAddress, wethAddress], owner.address, deadline],
-  })
-  .build()
+import {
+  WorkflowBuilder, JobBuilder, ChainId,
+  submitWorkflow, IpfsStorage, getDittoExecutorAddress
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import { addressToEmptyAccount } from '@zerodev/sdk';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const executorAddress = getDittoExecutorAddress();
+  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+
+  const tokenAddress = '0xYourTokenAddress';
+  const routerAddress = '0xDEXRouterAddress';
+  const wethAddress = '0xWETHAddress';
+  const swapAmount = BigInt('1000000000000000000'); // 1 token (18 decimals)
+
+  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+    .addCronTrigger('0 0 * * 1')  // Every Monday at midnight UTC
+    .setCount(52)                  // Up to 52 weeks
+    .setValidUntil(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .addJob(
+      JobBuilder.create('weekly-dca')
+        .setChainId(ChainId.BASE)
+        .addStep({
+          target: tokenAddress,
+          abi: 'approve(address,uint256)',
+          args: [routerAddress, swapAmount],
+          value: BigInt(0),
+        })
+        .addStep({
+          target: routerAddress,
+          abi: 'swapExactTokensForETH(uint256,uint256,address[],address,uint256)',
+          args: [
+            swapAmount,
+            BigInt(0),                    // minAmountOut (0 for simplicity — use dataRef for production)
+            [tokenAddress, wethAddress],
+            owner.address,
+            BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60), // 1 year deadline
+          ],
+          value: BigInt(0),
+        })
+        .build()
+    )
+    .build();
+
+  const { ipfsHash, userOpHashes } = await submitWorkflow(
+    workflow,
+    executorAddress,
+    storage,
+    owner,
+    true,                          // PRODUCTION
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Deployed! IPFS hash:', ipfsHash);
+  console.log('UserOp receipts:', userOpHashes.map(r => r.receipt?.transactionHash));
+}
+
+main().catch(console.error);
 ```
 
-Note: Time-dependent args like `deadline` are computed at script build time, not execution time. For workflows that may execute later, use generous deadlines or `dataRef` for on-chain timestamps.
+Note: Time-dependent args like `deadline` are computed at script build time, not execution time. For workflows that may execute far in the future, use generous deadlines or `dataRef` for on-chain timestamps.
+
+### Recipe 3: Call a Custom Contract on Event
+
+Listens for a `Transfer` event on a token contract and calls a custom contract function when it fires. This pattern works for any contract and any event.
+
+```typescript
+import {
+  WorkflowBuilder, JobBuilder, ChainId,
+  submitWorkflow, IpfsStorage, getDittoExecutorAddress
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import { addressToEmptyAccount } from '@zerodev/sdk';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const executorAddress = getDittoExecutorAddress();
+  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+
+  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+    // Trigger: fire when a Transfer event is emitted by the token contract
+    .addEventTrigger({
+      chainId: ChainId.SEPOLIA,
+      contractAddress: '0xTokenContractAddress',
+      signature: 'Transfer(address,address,uint256)',
+      filter: { to: owner.address },  // Optional: only when tokens are sent TO the owner
+    })
+    .setCount(5)
+    .setValidUntil(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .addJob(
+      JobBuilder.create('custom-action')
+        .setChainId(ChainId.SEPOLIA)
+        .addStep({
+          target: '0xYourCustomContractAddress',
+          abi: 'processDeposit(address,uint256,bool)',
+          args: [
+            '0xSomeAddress',
+            BigInt('500000000000000000'), // 0.5 (18 decimals)
+            true,
+          ],
+          value: BigInt(0),
+        })
+        .build()
+    )
+    .build();
+
+  const { ipfsHash, userOpHashes } = await submitWorkflow(
+    workflow,
+    executorAddress,
+    storage,
+    owner,
+    false,                         // testnet
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Deployed! IPFS hash:', ipfsHash);
+  console.log('UserOp receipts:', userOpHashes.map(r => r.receipt?.transactionHash));
+}
+
+main().catch(console.error);
+```
+
+To adapt this recipe: replace the `signature` with any event your contract emits (e.g., `OrderPlaced(uint256,address)`), adjust the `filter` for indexed parameters, and replace the step's `target`/`abi`/`args` with your contract's function.
+
+### Recipe 4: Price-Triggered Swap with Data Reference (Advanced)
+
+Monitors a Chainlink oracle and swaps tokens when ETH drops below $2000, using the live price as a swap argument.
+
+```typescript
+import {
+  WorkflowBuilder, JobBuilder, ChainId,
+  submitWorkflow, IpfsStorage, getDittoExecutorAddress,
+  dataRef, OnchainConditionOperator
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import { addressToEmptyAccount } from '@zerodev/sdk';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const executorAddress = getDittoExecutorAddress();
+  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+
+  // Data reference: read live ETH/USD price at execution time
+  const ethPrice = dataRef({
+    target: '0x694AA1769357215DE4FAC081bf1f309aDC325306', // Chainlink ETH/USD on Sepolia
+    abi: 'latestRoundData() returns (uint80, int256, uint256, uint256, uint80)',
+    chainId: ChainId.SEPOLIA,
+    resultIndex: 1, // int256 price (2nd return value)
+  });
+
+  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+    // Trigger: check price every 5 minutes, fire when ETH < $2000
+    .addCronTrigger('*/5 * * * *')
+    .addOnchainTrigger({
+      chainId: ChainId.SEPOLIA,
+      target: '0x694AA1769357215DE4FAC081bf1f309aDC325306',
+      abi: 'latestAnswer() view returns (int256)',
+      args: [],
+      onchainCondition: {
+        condition: OnchainConditionOperator.LESS_THAN,
+        value: BigInt('200000000000'), // $2000 with 8 decimals
+      },
+    })
+    .setCount(3)
+    .setValidUntil(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .addJob(
+      JobBuilder.create('price-swap')
+        .setChainId(ChainId.SEPOLIA)
+        .addStep({
+          target: '0xSwapRouterAddress',
+          abi: 'swap(uint256)',
+          args: [ethPrice], // Resolved dynamically at execution time
+          value: BigInt(0),
+        })
+        .build()
+    )
+    .build();
+
+  const { ipfsHash, userOpHashes } = await submitWorkflow(
+    workflow,
+    executorAddress,
+    storage,
+    owner,
+    false,                         // testnet
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Deployed! IPFS hash:', ipfsHash);
+  console.log('UserOp receipts:', userOpHashes.map(r => r.receipt?.transactionHash));
+}
+
+main().catch(console.error);
+```
+
+### Recipe 5: Multi-Chain Workflow
+
+Deploys a workflow with jobs on two different chains. Each job gets its own session key and on-chain registration.
+
+```typescript
+import {
+  WorkflowBuilder, JobBuilder, ChainId,
+  submitWorkflow, IpfsStorage, getDittoExecutorAddress
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import { addressToEmptyAccount } from '@zerodev/sdk';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const executorAddress = getDittoExecutorAddress();
+  const storage = new IpfsStorage(process.env.IPFS_SERVICE_URL!);
+
+  const workflow = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+    .addCronTrigger('0 */12 * * *') // Every 12 hours
+    .setCount(20)
+    .setValidUntil(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .addJob(
+      JobBuilder.create('sepolia-transfer')
+        .setChainId(ChainId.SEPOLIA)
+        .addStep({
+          target: '0xRecipientOnSepolia',
+          abi: '',
+          args: [],
+          value: BigInt('100000000000000') // 0.0001 ETH
+        })
+        .build()
+    )
+    .addJob(
+      JobBuilder.create('base-sepolia-transfer')
+        .setChainId(ChainId.BASE_SEPOLIA)
+        .addStep({
+          target: '0xRecipientOnBaseSepolia',
+          abi: '',
+          args: [],
+          value: BigInt('100000000000000') // 0.0001 ETH
+        })
+        .build()
+    )
+    .build();
+
+  const { ipfsHash, userOpHashes } = await submitWorkflow(
+    workflow,
+    executorAddress,
+    storage,
+    owner,
+    false,
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Deployed! IPFS hash:', ipfsHash);
+  console.log('UserOp receipts:', userOpHashes.map(r => r.receipt?.transactionHash));
+}
+
+main().catch(console.error);
+```
+
+Note: The smart account must be funded on BOTH chains for multi-chain workflows.
+
+### Recipe 6: Cancel a Workflow
+
+Cancels a previously deployed workflow using its IPFS hash.
+
+```typescript
+import {
+  WorkflowContract, getDittoWFRegistryAddress, ChainId
+} from '@ditto/workflow-sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  const owner = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const ipfsHash = 'QmYourWorkflowIpfsHash'; // From submitWorkflow output
+
+  const registryAddress = getDittoWFRegistryAddress(false); // false = testnet
+  const wfContract = new WorkflowContract(registryAddress);
+
+  const receipt = await wfContract.cancelWorkflow(
+    ipfsHash,
+    owner,
+    ChainId.BASE_SEPOLIA,          // The chain the job was registered on
+    process.env.IPFS_SERVICE_URL!,
+  );
+
+  console.log('Workflow cancelled! Tx:', receipt.receipt?.transactionHash);
+}
+
+main().catch(console.error);
+```
+
+Note: You must cancel on each chain the workflow has jobs on. For multi-chain workflows, call `cancelWorkflow` once per chain.
 
 ## Validation Checklist
 
 BEFORE calling `submitWorkflow`, verify:
 - Every step has a valid `target` address (0x-prefixed, 42 chars)
 - `abi` is a valid Solidity function signature or empty string for raw ETH transfer
+- All `value` fields use `BigInt()` — never plain numbers or strings
 - `chainId` is from the supported chains list
 - At least one trigger is defined
 - `count` is > 0 if set
 - `validUntil` is in the future
 - `.env` has `PRIVATE_KEY` and `IPFS_SERVICE_URL`
+- `prodContract` and `ipfsServiceUrl` are passed explicitly to `submitWorkflow`
 
 ## Troubleshooting
 
 ### Error: "Missing required environment variables"
 Cause: `.env` file missing or incomplete.
-Solution: Ensure `PRIVATE_KEY` and `IPFS_SERVICE_URL` are set. The executor address is provided by the SDK via `getDittoExecutorAddress()` — do NOT add it to `.env`.
+Solution: Ensure `PRIVATE_KEY` and `IPFS_SERVICE_URL` are set. The IPFS URL must be exactly `https://ipfs-service.dittonetwork.io`. The executor address is provided by the SDK via `getDittoExecutorAddress()` — do NOT add it to `.env`.
 
 ### Error: "Chain ID must be greater than 0"
 Cause: `setChainId()` not called on JobBuilder.
@@ -419,9 +686,19 @@ Causes:
 - Smart account has insufficient ETH for the step values
 - Target contract function reverts (wrong args, permissions)
 - Session key expired or misconfigured
+- `value` was not passed as `BigInt` (causes empty session permissions)
 
-Solution: Ensure the owner's smart account is funded on the target chain. Verify contract args are correct.
+Solution: Ensure the owner's smart account is funded on the target chain. Verify contract args are correct. Verify all `value` fields use `BigInt()`.
 
 ### IPFS upload fails
 Cause: `IPFS_SERVICE_URL` unreachable or invalid.
-Solution: Verify the URL is correct and accessible. Default: `https://ipfs-service.dittonetwork.io`
+Solution: The URL must be exactly `https://ipfs-service.dittonetwork.io`. No other URL works.
+
+### Workflow deploys but never executes
+Causes:
+- Smart account not funded on the target chain
+- Trigger conditions never met (e.g., cron in the past, price threshold never reached)
+- `validUntil` already expired
+- `count` already exhausted from prior runs
+
+Solution: Check execution logs via `https://ipfs-service.dittonetwork.io/workflow/logs/{ipfsHash}` to see if execution was attempted. Check reports via `https://ipfs-service.dittonetwork.io/get-reports?ipfsHash={ipfsHash}` to see if nodes are simulating it.
