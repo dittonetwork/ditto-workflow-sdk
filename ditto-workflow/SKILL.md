@@ -22,7 +22,7 @@ IMPORTANT: This skill file is the single source of truth for creating workflows.
 Understanding these two roles is critical:
 
 - **Owner** (the client/user): Holds a private key, creates and signs workflows. This is the only key the user provides.
-- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The SDK provides the executor's public address to issue session permissions.
+- **Executor** (Ditto Network): A decentralized network of operators that runs workflows. The sdk provides the executor's public address to issue session permissions.
 
 `submitWorkflow` takes `executorAddress` (a public `0x...` address). The session key system grants scoped permissions to this address so the network can execute on behalf of the owner's smart account.
 
@@ -45,7 +45,7 @@ IPFS_SERVICE_URL=https://ipfs-service.dittonetwork.io
 
 The `IPFS_SERVICE_URL` MUST be exactly `https://ipfs-service.dittonetwork.io`. No other URL works. Do not use `api.ditto.network`, localhost URLs, or any other endpoint.
 
-The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`. Never ask the user for an executor address or private key.
+The executor address is embedded in the SDK — use `getDittoExecutorAddress()` from `@ditto/workflow-sdk`.
 
 CRITICAL:
 - Never hardcode the owner's private key in source files. Always load from `.env` via `dotenv`.
