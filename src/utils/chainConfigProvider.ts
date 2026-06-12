@@ -35,15 +35,17 @@ export class StatelessChainConfigProvider {
 
     static getDittoPolicyAddress(isProd: boolean, chainId?: number): `0x${string}` {
         if (isProd) {
-            // Prod DittoPolicy (UUPS proxy) at the same deterministic address across mainnets.
-            return '0x7BC0c021E8B7850155b7E0156055bf3B5427c88f' as `0x${string}`
+            // Prod DittoPolicy (UUPS proxy, atomic-init v4) at the same deterministic address
+            // across Ethereum, Polygon, Base, and Arbitrum. Replaces 0x7BC0c021... whose Arbitrum
+            // proxy was hijacked via an initialize-snipe on the old non-atomic deploy.
+            return '0x5E85C2ACd361F924948311c69BfC69228D7761FF' as `0x${string}`
         }
         // Stage: Base Sepolia has a fresh v3 deploy (plain CREATE, atomic init).
         if (chainId === 84532) {
             return '0xC4d7F06fE16e87B7D022337a165e443728d915EC' as `0x${string}`
         }
         // Fallback for other test chains — likely unset; revisit when used.
-        return '0x7BC0c021E8B7850155b7E0156055bf3B5427c88f' as `0x${string}`
+        return '0x5E85C2ACd361F924948311c69BfC69228D7761FF' as `0x${string}`
     }
 }
 
