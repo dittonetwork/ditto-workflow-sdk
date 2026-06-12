@@ -3,16 +3,12 @@ import {
   createKernelAccount,
 } from "@zerodev/sdk";
 import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
-import { signerToSessionKeyValidator } from "@zerodev/session-key";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { createBundlerClient, createPaymasterClient, UserOperationReceipt } from 'viem/account-abstraction';
 import { getChainConfig } from '../utils/chainConfigProvider';
 import { DittoWFRegistryAbi, entryPointVersion } from '../utils/constants';
 import { Signer } from "@zerodev/sdk/types";
 import { authHttpConfig } from '../utils/httpTransport';
-import { toEmptyECDSASigner } from '@zerodev/permissions/signers';
-import { buildSudoPolicy } from '../core/builders/PermissionBuilder';
-import { serializePermissionAccount, toPermissionValidator } from "@zerodev/permissions";
 
 
 export class WorkflowContract {
@@ -33,6 +29,8 @@ export class WorkflowContract {
     ipfsServiceUrl: string,
     usePaymaster: boolean = false,
     accessToken?: string,
+    initConfig?: `0x${string}`[],
+    deployedAccountAddress?: `0x${string}`,
   ): Promise<UserOperationReceipt> {
     const chainConfig = getChainConfig(ipfsServiceUrl);
     const chain = chainConfig[chainId]?.chain;
@@ -50,12 +48,17 @@ export class WorkflowContract {
       kernelVersion: KERNEL_V3_3,
     });
 
+    // Use the same initConfig so the counterfactual address matches the session's
+    // kernel account. deployedAccountAddress is passed as `address` (the actual
+    // createKernelAccount parameter) to pin it explicitly.
     const kernelAccount = await createKernelAccount(publicClient, {
       plugins: {
         sudo: ownerValidator,
       },
       entryPoint,
       kernelVersion: KERNEL_V3_3,
+      initConfig,
+      ...(deployedAccountAddress ? { address: deployedAccountAddress } : {}),
     });
 
     const kernelPaymaster = createPaymasterClient({

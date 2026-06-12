@@ -32,15 +32,15 @@
   "license": "MIT",
   "dependencies": {
     "@zerodev/ecdsa-validator": "^5.4.9",
-    "@zerodev/permissions": "^5.5.9",
-    "@zerodev/sdk": "^5.4.39",
+    "@zerodev/permissions": "^5.6.3",
+    "@zerodev/sdk": "^5.5.10",
     "@zerodev/session-key": "^5.4.9",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.0",
+    "pino": "^8.15.1",
     "tslib": "^2.6.2",
     "viem": "^2.31.3",
-    "zod": "^3.25.76",
-    "pino": "^8.15.1"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
