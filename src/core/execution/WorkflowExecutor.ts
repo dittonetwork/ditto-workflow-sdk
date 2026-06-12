@@ -48,37 +48,8 @@ function createApprovalStateOverride(): Array<{ address: Address; code: Hex }> {
     }];
 }
 
-/**
- * Force ENABLE mode for session deserialization.
- *
- * The ZeroDev SDK dynamically selects validator mode based on on-chain
- * isPluginEnabled() state. After first execution, the plugin becomes enabled,
- * causing subsequent executions to use DEFAULT mode (0x00) instead of ENABLE
- * mode (0x01). This breaks the signature since it was created for ENABLE mode.
- *
- * This function forces isPreInstalled=false to always use ENABLE mode.
- */
-function forceEnableModeInSession(sessionStr: string): string {
-    try {
-        // Session format: base64url(JSON) - standard ZeroDev format
-        // base64url uses - instead of + and _ instead of /
-        const base64 = sessionStr.replace(/-/g, '+').replace(/_/g, '/');
-        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
-        const decoded = JSON.parse(Buffer.from(padded, 'base64').toString('utf-8'));
-
-        // Force isPreInstalled to false to ensure ENABLE mode is used
-        decoded.isPreInstalled = false;
-
-        // Re-encode to base64url
-        const encoded = Buffer.from(JSON.stringify(decoded)).toString('base64');
-        // Convert to base64url (remove padding, replace + with -, / with _)
-        return encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    } catch (e) {
-        // If parsing fails, return original (let SDK handle any errors)
-        console.warn('Failed to patch session for ENABLE mode:', e);
-        return sessionStr;
-    }
-}
+// forceEnableModeInSession removed: no longer needed with initConfig-based
+// session creation (permission plugin is pre-installed during account deployment)
 import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { deserialize } from '../builders/WorkflowSerializer';
@@ -317,14 +288,13 @@ export async function executeJob(
     });
 
     const entryPoint = getEntryPoint(entryPointVersion);
-    // Force ENABLE mode to ensure signature validity across executions
-    // See: forceEnableModeInSession() for explanation of the ZeroDev SDK mode switching issue
-    const patchedSession = forceEnableModeInSession(job.session as string);
+    // With initConfig-based sessions, the permission plugin is pre-installed
+    // during account deployment, so no enable mode patching is needed.
     const sessionKeyAccount = await deserializePermissionAccount(
         publicClient,
         entryPoint,
         KERNEL_V3_3,
-        patchedSession,
+        job.session as string,
         await toECDSASigner({ signer: executorAccount })
     );
     const kernelPaymaster = createPaymasterClient({
@@ -523,7 +493,7 @@ export async function executeJob(
         data: step.getCalldata() as `0x${string}`,
     }));
     calls.push({
-        to: getDittoWFRegistryAddress(prodContract),
+        to: getDittoWFRegistryAddress(prodContract, job.chainId),
         value: BigInt(0),
         data: encodeFunctionData({
             abi: DittoWFRegistryAbi,

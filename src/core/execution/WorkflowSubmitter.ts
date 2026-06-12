@@ -1,7 +1,7 @@
 import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { WorkflowContract } from '../../contracts/WorkflowContract';
-import { serialize } from '../builders/WorkflowSerializer';
+import { serialize, SerializeResult } from '../builders/WorkflowSerializer';
 import { Signer } from "@zerodev/sdk/types";
 import { UserOperationReceipt } from 'viem/account-abstraction';
 import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
@@ -22,20 +22,35 @@ export async function submitWorkflow(
     userOpHashes: UserOperationReceipt[];
 }> {
     workflow.typify();
-    const serializedData = await serialize(workflow, executorAddress, owner, prodContract, ipfsServiceUrl, switchChain, accessToken);
-    // const validation = await WorkflowValidator.validate(workflow, owner, ipfsServiceUrl);
-    // if (validation.status !== ValidatorStatus.Success) {
-    //     throw new Error(validatorStatusMessage(validation.status));
-    // }
+    const { data: serializedData, initConfigs } = await serialize(workflow, executorAddress, owner, prodContract, ipfsServiceUrl, switchChain, accessToken);
     const ipfsHash = await storage.upload(serializedData);
 
-    const workflowContract = new WorkflowContract(getDittoWFRegistryAddress(prodContract));
+    // Extract session account address so createWorkflow deploys from the same account
+    function getSessionAccountAddress(serializedJob: any): `0x${string}` | undefined {
+        try {
+            const sess = serializedJob.session;
+            if (!sess) return undefined;
+            const base64 = sess.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+            const decoded = JSON.parse(Buffer.from(padded, 'base64').toString('utf-8'));
+            return decoded.accountParams?.accountAddress as `0x${string}`;
+        } catch { return undefined; }
+    }
+
     const userOpHashes: UserOperationReceipt[] = [];
-    for (const job of workflow.jobs) {
+    for (let i = 0; i < workflow.jobs.length; i++) {
+        const job = workflow.jobs[i];
         if (switchChain) {
             await switchChain(job.chainId);
         }
-        const receipt = await workflowContract.createWorkflow(ipfsHash, owner, job.chainId, ipfsServiceUrl, usePaymaster, accessToken);
+        // Registry address is chain-specific on stage (different deploys per chain).
+        const workflowContract = new WorkflowContract(getDittoWFRegistryAddress(prodContract, job.chainId));
+        const sessionAccountAddress = getSessionAccountAddress((serializedData as any).workflow?.jobs?.[i] || (serializedData as any).jobs?.[i]);
+        const receipt = await workflowContract.createWorkflow(
+            ipfsHash, owner, job.chainId, ipfsServiceUrl, usePaymaster, accessToken,
+            initConfigs.get(job.chainId),
+            sessionAccountAddress,
+        );
         userOpHashes.push(receipt);
     }
 

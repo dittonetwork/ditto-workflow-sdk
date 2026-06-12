@@ -6,12 +6,13 @@ import {
     ParamCondition,
     toRateLimitPolicy,
     toTimestampPolicy,
-    SudoPolicyParams
+    toSudoPolicy,
 } from "@zerodev/permissions/policies";
 import { DittoWFRegistryAbi } from '../../utils/constants';
-import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
+import { getDittoWFRegistryAddress, getDittoPolicyAddress } from '../../utils/chainConfigProvider';
 import { Address, concatHex } from 'viem';
 import { Policy } from '@zerodev/permissions/types';
+import type { SudoPolicyParams } from '@zerodev/permissions/policies';
 import { DATA_REF_PREFIX } from '../DataRefResolver';
 import { WASM_REF_PREFIX } from '../WasmRefResolver';
 
@@ -114,22 +115,23 @@ function deduplicateAndMergePermissions(permissions: Permission[]): Permission[]
     return result;
 }
 
-export function buildSudoPolicy(): Policy {
-    const policyFlag = "0x0000";
-    const policyAddress = "0x7BC0c021E8B7850155b7E0156055bf3B5427c88f";
+// Returns a Policy wrapping the Ditto DittoPolicy contract (ERC-7579 policy module).
+// DittoPolicy bypasses ECDSA signature validation and only approves userOps whose hash
+// the DittoOthenticHook has attested via off-chain consensus. Session keys in this SDK
+// are built with `toEmptyECDSASigner` (no private key), so canonical `toSudoPolicy` —
+// which still requires a real signature — would fail with EntryPoint AA24.
+export function buildSudoPolicy(prodContract: boolean, chainId?: number): Policy {
+    const policyFlag = "0x0000" as `0x${string}`;
+    const policyAddress = getDittoPolicyAddress(prodContract, chainId);
     return {
-        getPolicyData: () => {
-            return "0x"
-        },
-        getPolicyInfoInBytes: () => {
-            return concatHex([policyFlag, policyAddress])
-        },
+        getPolicyData: () => "0x",
+        getPolicyInfoInBytes: () => concatHex([policyFlag, policyAddress]),
         policyParams: {
             type: "sudo",
             policyAddress,
-            policyFlag
-        } as SudoPolicyParams & { type: "sudo" }
-    }
+            policyFlag,
+        } as SudoPolicyParams & { type: "sudo" },
+    };
 }
 
 export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Job): ReturnType<typeof toCallPolicy>[] {
@@ -177,7 +179,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
     });
 
     permissions.push({
-        target: getDittoWFRegistryAddress(prodContract),
+        target: getDittoWFRegistryAddress(prodContract, job.chainId),
         valueLimit: BigInt(0),
         abi: DittoWFRegistryAbi,
         functionName: "markRun",
@@ -193,7 +195,7 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
             policyVersion: CallPolicyVersion.V0_0_4,
             permissions: dedupedPermissions as any,
         }),
-        buildSudoPolicy(),
+        buildSudoPolicy(prodContract, job.chainId),
     ];
     if (workflow.count && workflow.count > 0) {
         if (workflow.interval && workflow.interval > 0) {

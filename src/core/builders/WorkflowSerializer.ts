@@ -3,7 +3,7 @@ import { Signer } from "@zerodev/sdk/types";
 import { addressToEmptyAccount } from "@zerodev/sdk";
 import { SerializedWorkflowData } from '../../storage/IWorkflowStorage';
 import { Workflow } from '../Workflow';
-import { createSession } from './SessionService';
+import { createSession, SessionResult } from './SessionService';
 import { SerializedWorkflowDataSchema } from '../validation/WorkflowSchema';
 import { WorkflowError, WorkflowErrorCode } from '../WorkflowError';
 import { OnchainConditionOperator, type Step as IStep, type Job as IJob } from '../types';
@@ -95,6 +95,11 @@ function coerceArgsByAbi(signature: string, rawArgs: any[]): any[] {
     }
 }
 
+export interface SerializeResult {
+    data: SerializedWorkflowData;
+    initConfigs: Map<number, `0x${string}`[]>; // chainId -> initConfig
+}
+
 export async function serialize(
     workflow: Workflow,
     executorAddress: Address,
@@ -103,13 +108,15 @@ export async function serialize(
     ipfsServiceUrl: string,
     switchChain?: (chainId: number) => Promise<void>,
     accessToken?: string,
-): Promise<SerializedWorkflowData> {
+): Promise<SerializeResult> {
     const jobs: any[] = [];
+    const initConfigs = new Map<number, `0x${string}`[]>();
     for (const job of workflow.jobs) {
         if (switchChain) {
             await switchChain(job.chainId);
         }
-        const session = await createSession(workflow, job, executorAddress, owner, prodContract, ipfsServiceUrl, accessToken);
+        const { session, initConfig } = await createSession(workflow, job, executorAddress, owner, prodContract, ipfsServiceUrl, accessToken);
+        initConfigs.set(job.chainId, initConfig);
         jobs.push({
             id: job.id,
             chainId: job.chainId,
@@ -131,7 +138,7 @@ export async function serialize(
             session: session,
         });
     }
-    return {
+    const result = {
         workflow: {
             owner: workflow.owner.address,
             triggers: workflow.triggers
@@ -163,7 +170,9 @@ export async function serialize(
             createdAt: Date.now(),
             version: "1.0.0",
         },
-    };
+    } as SerializedWorkflowData;
+
+    return { data: result, initConfigs };
 }
 
 export async function deserialize(
