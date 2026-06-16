@@ -3,7 +3,7 @@ import { Signer } from "@zerodev/sdk/types";
 import { addressToEmptyAccount } from "@zerodev/sdk";
 import { SerializedWorkflowData } from '../../storage/IWorkflowStorage';
 import { Workflow } from '../Workflow';
-import { createSession, SessionResult } from './SessionService';
+import { createSession } from './SessionService';
 import { SerializedWorkflowDataSchema } from '../validation/WorkflowSchema';
 import { WorkflowError, WorkflowErrorCode } from '../WorkflowError';
 import { OnchainConditionOperator, type Step as IStep, type Job as IJob } from '../types';
@@ -35,69 +35,12 @@ function conditionStringToEnum(text: string): OnchainConditionOperator {
     }
 }
 
-function extractInputTypesFromAbiSignature(signature: string): string[] {
-    const match = signature.match(/^\s*[^\s(]+\s*\(([^)]*)\)/);
-    if (!match) {
-        return [];
-    }
-    const params = match[1].trim();
-    if (params.length === 0) {
-        return [];
-    }
-    return params
-        .split(',')
-        .map(p => p.trim())
-        .filter(p => p.length > 0)
-        .map(p => {
-            const firstSpace = p.indexOf(' ');
-            return (firstSpace === -1 ? p : p.slice(0, firstSpace)).trim();
-        });
-}
-
-// Data reference prefix - values starting with this should not be coerced
-const DATA_REF_PREFIX = '$ref:';
-
-function coerceArgToType(raw: any, type: string): any {
-    if (raw === null || raw === undefined) return raw;
-    // Skip coercion for data references - they will be resolved at execution time
-    if (typeof raw === 'string' && raw.startsWith(DATA_REF_PREFIX)) return raw;
-    const lower = type.toLowerCase();
-    if (lower === 'bool') {
-        if (typeof raw === 'boolean') return raw;
-        if (typeof raw === 'string') return raw.toLowerCase() === 'true';
-        return Boolean(raw);
-    }
-    if (lower.startsWith('uint') || lower.startsWith('int')) {
-        if (typeof raw === 'bigint') return raw;
-        if (typeof raw === 'number') return BigInt(raw);
-        if (typeof raw === 'string') return BigInt(raw);
-        return BigInt(raw as any);
-    }
-    if (lower === 'address') {
-        return String(raw) as any;
-    }
-    if (lower === 'string') {
-        return String(raw);
-    }
-    if (lower.startsWith('bytes')) {
-        return String(raw);
-    }
-    return raw;
-}
-
-function coerceArgsByAbi(signature: string, rawArgs: any[]): any[] {
-    try {
-        const types = extractInputTypesFromAbiSignature(signature);
-        if (types.length === 0) return rawArgs;
-        return rawArgs.map((arg, idx) => coerceArgToType(arg, types[Math.min(idx, types.length - 1)]));
-    } catch {
-        return rawArgs;
-    }
-}
-
 export interface SerializeResult {
     data: SerializedWorkflowData;
-    initConfigs: Map<number, `0x${string}`[]>; // chainId -> initConfig
+    // One initConfig per job, aligned by index with `data.workflow.jobs`. Keyed by index
+    // (not chainId) so multiple jobs on the same chain don't collide — each job has its own
+    // session account, hence its own initConfig.
+    initConfigs: `0x${string}`[][];
 }
 
 export async function serialize(
@@ -110,13 +53,13 @@ export async function serialize(
     accessToken?: string,
 ): Promise<SerializeResult> {
     const jobs: any[] = [];
-    const initConfigs = new Map<number, `0x${string}`[]>();
+    const initConfigs: `0x${string}`[][] = [];
     for (const job of workflow.jobs) {
         if (switchChain) {
             await switchChain(job.chainId);
         }
         const { session, initConfig } = await createSession(workflow, job, executorAddress, owner, prodContract, ipfsServiceUrl, accessToken);
-        initConfigs.set(job.chainId, initConfig);
+        initConfigs.push(initConfig);
         jobs.push({
             id: job.id,
             chainId: job.chainId,

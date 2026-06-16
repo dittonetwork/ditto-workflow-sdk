@@ -77,9 +77,38 @@ maybe('v4 account derivation determinism (integration — needs DITTO_IPFS_SERVI
       plugins: { sudo: ownerValidator },
       entryPoint,
       kernelVersion: KERNEL_V3_3,
-      initConfig: initConfigs.get(job.chainId),
+      initConfig: initConfigs[0],
     });
 
     expect(registering.address.toLowerCase()).toEqual(sessionAccount);
+  });
+
+  // Regression for the per-chain initConfig collision: two jobs on the same chain must each
+  // keep their own initConfig (one per job, by index) — not collapse to a single per-chain entry.
+  test('multi-job same-chain: each job keeps its own initConfig (no collision)', async () => {
+    const SECOND_FEED = '0x694AA1769357215DE4FAC081bf1f309aDC325306' as const; // distinct Base Sepolia target
+    const wf = WorkflowBuilder.create(addressToEmptyAccount(owner.address))
+      .addCronTrigger('*/2 * * * *')
+      .setCount(5)
+      .setInterval(120)
+      .setValidAfter(new Date(ANCHOR))
+      .setValidUntil(new Date(ANCHOR + 60 * 60 * 1000))
+      .addJob(
+        JobBuilder.create('job-A').setChainId(ChainId.BASE_SEPOLIA)
+          .addStep({ target: CHAINLINK_FEED, abi: 'latestRoundData()', args: [], value: BigInt(0) }).build(),
+      )
+      .addJob(
+        JobBuilder.create('job-B').setChainId(ChainId.BASE_SEPOLIA)
+          .addStep({ target: SECOND_FEED, abi: 'latestRoundData()', args: [], value: BigInt(0) }).build(),
+      )
+      .build();
+    wf.typify();
+
+    const { data, initConfigs } = await serialize(wf, EXECUTOR, owner, false, IPFS_SERVICE_URL!);
+
+    expect(initConfigs.length).toBe(2); // one per job, not collapsed to a single per-chain entry
+    const accA = decodeSessionAccount(data.workflow.jobs[0].session);
+    const accB = decodeSessionAccount(data.workflow.jobs[1].session);
+    expect(accB).not.toEqual(accA); // different call targets → different session accounts
   });
 });

@@ -1,4 +1,4 @@
-import { Hex, createPublicClient, http, encodeFunctionData, parseAbiItem, AbiFunction, Address } from 'viem';
+import { Hex, createPublicClient, http, encodeFunctionData, Address } from 'viem';
 import {
 } from "@zerodev/sdk";
 import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
@@ -523,6 +523,7 @@ export async function executeJob(
     try {
         signature = await sessionKeyAccount.signUserOperation(userOperation);
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.log(error);
         signature = userOperation.signature;
     }
@@ -538,13 +539,6 @@ export async function executeJob(
             } as any);
             const fees = await publicClient.estimateFeesPerGas();
             const feePerGas = BigInt(fees.maxFeePerGas);
-            const totalGasUnits =
-                estimation.preVerificationGas +
-                estimation.verificationGasLimit +
-                estimation.callGasLimit +
-                (estimation.paymasterVerificationGasLimit ?? BigInt(0)) +
-                (estimation.paymasterPostOpGasLimit ?? BigInt(0));
-            const totalGasEstimate = totalGasUnits * feePerGas;
             // Use buffered callGasLimit from userOperation
             const bufferedCallGasLimit = BigInt(userOperation.callGasLimit);
             const bufferedTotalGasUnits =

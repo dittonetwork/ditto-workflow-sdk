@@ -5,7 +5,6 @@ import {
     CallPolicyVersion,
     ParamCondition,
     toRateLimitPolicy,
-    toSudoPolicy,
 } from "@zerodev/permissions/policies";
 import { DittoWFRegistryAbi } from '../../utils/constants';
 import { getDittoWFRegistryAddress, getDittoPolicyAddress } from '../../utils/chainConfigProvider';
