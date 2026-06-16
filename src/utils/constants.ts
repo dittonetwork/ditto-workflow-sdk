@@ -1,5 +1,5 @@
 import { parseAbiItem, AbiFunction } from 'viem'
-import { baseSepolia, sepolia, base, mainnet, arbitrum, polygon, optimism } from 'viem/chains'
+import { baseSepolia, sepolia, base, mainnet, arbitrum, polygon } from 'viem/chains'
 
 export enum ChainId {
     SEPOLIA = 11155111,
@@ -11,7 +11,9 @@ export enum ChainId {
     MAINNET = 1,
 }
 
-export const PROD_CHAINS = [base, mainnet, arbitrum, polygon, optimism]
+// NOTE: Optimism is intentionally excluded — the Ditto AVS stack (Attestation Center,
+// hook, DittoPolicy) is not deployed there. Add it back only once the policy exists on-chain.
+export const PROD_CHAINS = [base, mainnet, arbitrum, polygon]
 export const TEST_CHAINS = [sepolia, baseSepolia]
 
 export const DittoWFRegistryAbi = [

@@ -7,7 +7,7 @@ export class StatelessChainConfigProvider {
         if (!ipfsServiceUrl) {
             throw new Error('Ipfs Service URL is not set')
         }
-        var config: Record<number, ChainConfig> = {}
+        const config: Record<number, ChainConfig> = {}
         for (const chain of [...PROD_CHAINS, ...TEST_CHAINS]) {
             config[chain.id] = {
                 chainId: chain.id,

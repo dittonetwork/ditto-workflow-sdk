@@ -1,10 +1,9 @@
 import { Workflow } from '../Workflow';
 import { IWorkflowStorage } from '../../storage/IWorkflowStorage';
 import { WorkflowContract } from '../../contracts/WorkflowContract';
-import { serialize, SerializeResult } from '../builders/WorkflowSerializer';
+import { serialize } from '../builders/WorkflowSerializer';
 import { Signer } from "@zerodev/sdk/types";
 import { UserOperationReceipt } from 'viem/account-abstraction';
-import { ValidatorStatus, validatorStatusMessage, WorkflowValidator } from '../validation/WorkflowValidator';
 import { getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
 
 export async function submitWorkflow(
@@ -22,6 +21,12 @@ export async function submitWorkflow(
     userOpHashes: UserOperationReceipt[];
 }> {
     workflow.typify();
+    // Off-chain validity backstop: the on-chain timestamp policy was removed (it made the
+    // account address non-deterministic), and the AVS gates execution by the validity window,
+    // but fail fast here too rather than submit a workflow that can never run.
+    if (workflow.isExpired()) {
+        throw new Error('Workflow validUntil is in the past; refusing to submit an already-expired workflow');
+    }
     const { data: serializedData, initConfigs } = await serialize(workflow, executorAddress, owner, prodContract, ipfsServiceUrl, switchChain, accessToken);
     const ipfsHash = await storage.upload(serializedData);
 
@@ -48,7 +53,7 @@ export async function submitWorkflow(
         const sessionAccountAddress = getSessionAccountAddress((serializedData as any).workflow?.jobs?.[i] || (serializedData as any).jobs?.[i]);
         const receipt = await workflowContract.createWorkflow(
             ipfsHash, owner, job.chainId, ipfsServiceUrl, usePaymaster, accessToken,
-            initConfigs.get(job.chainId),
+            initConfigs[i],
             sessionAccountAddress,
         );
         userOpHashes.push(receipt);

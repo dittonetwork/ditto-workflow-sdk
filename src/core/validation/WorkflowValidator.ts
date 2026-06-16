@@ -6,9 +6,7 @@ import { deserializePermissionAccount } from '@zerodev/permissions'
 import { toECDSASigner } from '@zerodev/permissions/signers'
 import { getChainConfig } from '../../utils/chainConfigProvider'
 import { entryPointVersion } from '../../utils/constants'
-import { buildPolicies } from '../builders/PermissionBuilder'
 import { OnchainConditionOperator } from '../types'
-import { createSession } from '../builders/SessionService'
 import { authHttpConfig } from '../../utils/httpTransport'
 
 export enum ValidatorStatus {
@@ -150,6 +148,7 @@ export class WorkflowValidator {
                         }
                     }
                 } catch (error) {
+                    // eslint-disable-next-line no-console
                     console.log(error)
                     statuses.add(ValidatorStatus.InvalidStep)
                     errors.push(`invalid abi or args in step of job ${job.id}`)
