@@ -5,7 +5,6 @@ import {
     CallPolicyVersion,
     ParamCondition,
     toRateLimitPolicy,
-    toTimestampPolicy,
     toSudoPolicy,
 } from "@zerodev/permissions/policies";
 import { DittoWFRegistryAbi } from '../../utils/constants';
@@ -209,21 +208,15 @@ export function buildPolicies(workflow: Workflow, prodContract: boolean, job: Jo
             }));
         }
     }
-    if (workflow.validUntil) {
-        if (workflow.validAfter) {
-            policies.push(toTimestampPolicy({
-                validAfter: Math.floor(workflow.validAfter.getTime() / 1000),
-                validUntil: Math.floor(workflow.validUntil.getTime() / 1000),
-            }));
-        } else {
-            policies.push(toTimestampPolicy({
-                validUntil: Math.floor(workflow.validUntil.getTime() / 1000),
-            }));
-        }
-    } else if (workflow.validAfter) {
-        policies.push(toTimestampPolicy({
-            validAfter: Math.floor(workflow.validAfter.getTime() / 1000),
-        }));
-    }
+    // The validity window (validAfter/validUntil) is deliberately NOT installed as an
+    // on-chain timestamp policy. A timestamp policy built from the wall-clock window would
+    // become part of the permission set -> permissionId -> toInitConfig() -> the CREATE2
+    // Kernel account address, so every submit at a different second would derive a different
+    // counterfactual account (which then can't be pre-funded, and registering != executing
+    // account within a single submit). Keeping it out makes the account a stable function of
+    // (owner, executor, call-permissions, rate-limit) only. The window is still enforced
+    // off-chain: it is serialized into the IPFS workflow payload (WorkflowSerializer) and the
+    // Ditto AVS only attests/executes inside it, while the on-chain rate-limit policy
+    // (count/interval) bounds total executions.
     return policies;
 } 
