@@ -4,6 +4,7 @@ import {
 import { createBundlerClient, createPaymasterClient, UserOperationReceipt, UserOperation } from 'viem/account-abstraction';
 import { Signer } from "@zerodev/sdk/types";
 import { deserializePermissionAccount } from "@zerodev/permissions";
+import { ensureEnableModeForLegacySession } from "../../utils/legacySession";
 import { toECDSASigner } from "@zerodev/permissions/signers";
 import { getEntryPoint, KERNEL_V3_3 } from "@zerodev/sdk/constants";
 import { getChainConfig, getDittoWFRegistryAddress } from '../../utils/chainConfigProvider';
@@ -288,13 +289,13 @@ export async function executeJob(
     });
 
     const entryPoint = getEntryPoint(entryPointVersion);
-    // With initConfig-based sessions, the permission plugin is pre-installed
-    // during account deployment, so no enable mode patching is needed.
+    // Dual-format: v4 (initConfig) sessions are pre-installed and pass through untouched; legacy
+    // v3 (enable-mode) sessions are coerced to enable mode so they deserialize correctly here too.
     const sessionKeyAccount = await deserializePermissionAccount(
         publicClient,
         entryPoint,
         KERNEL_V3_3,
-        job.session as string,
+        ensureEnableModeForLegacySession(job.session as string),
         await toECDSASigner({ signer: executorAccount })
     );
     const kernelPaymaster = createPaymasterClient({

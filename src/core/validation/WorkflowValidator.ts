@@ -3,6 +3,7 @@ import { Signer } from '@zerodev/sdk/types'
 import { Address, createPublicClient, http, isAddress, parseAbiItem } from 'viem'
 import { getEntryPoint, KERNEL_V3_3 } from '@zerodev/sdk/constants'
 import { deserializePermissionAccount } from '@zerodev/permissions'
+import { ensureEnableModeForLegacySession } from '../../utils/legacySession'
 import { toECDSASigner } from '@zerodev/permissions/signers'
 import { getChainConfig } from '../../utils/chainConfigProvider'
 import { entryPointVersion } from '../../utils/constants'
@@ -115,7 +116,7 @@ export class WorkflowValidator {
                         publicClient,
                         getEntryPoint(entryPointVersion),
                         KERNEL_V3_3,
-                        job.session,
+                        ensureEnableModeForLegacySession(job.session),
                         await toECDSASigner({ signer: executor })
                     )
                 } catch (_) {
