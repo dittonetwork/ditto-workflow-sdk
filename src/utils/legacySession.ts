@@ -15,6 +15,16 @@
  * This guard restores the pre-#78 `forceEnableModeInSession` behavior, but GATED on the v3 marker
  * (presence of an `enableSignature`) so a v4 session is never mutated. v4 sessions are returned
  * byte-identical; v3 sessions are guaranteed to deserialize in enable mode.
+ *
+ * SECURITY NOTE — v3 policy hijack on Arbitrum (confirmed on-chain 2026-06-19):
+ * Legacy v3 sessions embed the old DittoPolicy proxy 0x7BC0c021…. That proxy is INTACT on
+ * Ethereum/Base/Polygon (impl 0x376f0460…) but HIJACKED on Arbitrum (impl → rogue 0xa5f5848…).
+ * v4 (DittoPolicy 0x5E85C2AC…) was deployed to fix this, and all new workflows are v4, so they
+ * never touch the v3 proxy. A legacy v3 session is therefore safe on every chain EXCEPT Arbitrum —
+ * do NOT run v3 on Arbitrum. No code guard is added here on purpose: the hijack makes any
+ * v3-Arbitrum account drainable directly on-chain (an attacker bypasses the AVS entirely), so a
+ * simulator-side block would protect nothing. The real fix is v4 + migrating any v3-Arbitrum funds;
+ * live v3 workflows are non-Arbitrum.
  */
 export function ensureEnableModeForLegacySession(sessionStr: string): string {
   let decoded: { isPreInstalled?: boolean; enableSignature?: string };
