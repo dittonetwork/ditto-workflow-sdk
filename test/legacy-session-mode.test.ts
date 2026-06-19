@@ -18,6 +18,10 @@ function encode(obj: any): string {
 const v3 = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'fixtures', 'v3-session.json'), 'utf-8'),
 );
+// A real v4 (initConfig/preinstalled) session from the current SDK: isPreInstalled=true, no enableSignature.
+const v4Fixture = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'fixtures', 'v4-session.json'), 'utf-8'),
+);
 
 describe('ensureEnableModeForLegacySession (v3/v4 dual-format guard)', () => {
   test('v3 session (has enableSignature) is forced to enable mode (isPreInstalled=false)', () => {
@@ -44,6 +48,10 @@ describe('ensureEnableModeForLegacySession (v3/v4 dual-format guard)', () => {
       isPreInstalled: true,
     });
     expect(ensureEnableModeForLegacySession(v4)).toBe(v4); // byte-identical, never touched
+  });
+
+  test('real v4 fixture is returned byte-for-byte unchanged', () => {
+    expect(ensureEnableModeForLegacySession(v4Fixture.session)).toBe(v4Fixture.session);
   });
 
   test('non-session / undecodable input is returned unchanged (defensive)', () => {

@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "test:integration": "DITTO_IPFS_SERVICE_URL=${DITTO_IPFS_SERVICE_URL:-http://46.101.223.202:8080} jest",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext .ts",
     "example": "ts-node examples/basic-workflow.ts",

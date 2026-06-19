@@ -12,6 +12,13 @@ import * as path from 'path';
 // v3 (enable-mode, pre-#78 zerodev 5.5.9) and a v4 (initConfig/preinstalled, current) session.
 // Needs a reachable RPC (deserialize does read-only chain calls) → gated on DITTO_IPFS_SERVICE_URL:
 //   DITTO_IPFS_SERVICE_URL=http://46.101.223.202:8080 npm test
+//
+// SCOPE: this validates account reconstruction / deserialization for both formats — NOT on-chain
+// execution. Executing a job also requires the session's call-policy markRun target to equal the
+// registry the executor targets. That holds on MAINNET (WFRegistry 0x7D48195F is stable since #39),
+// but NOT on stage Base Sepolia, where the registry was redeployed (old 0x580F57… → current
+// 0x1483314b…) — so this v3 *stage* fixture is deserialization coverage only. Full v3 execute→
+// markRun is validated separately by the simulator-service e2e against a registry-matched session.
 const IPFS = process.env.DITTO_IPFS_SERVICE_URL;
 const maybe = IPFS ? describe : describe.skip;
 
